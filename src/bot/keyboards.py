@@ -18,19 +18,19 @@ def get_tariffs_keyboard(show_trial: bool = False) -> InlineKeyboardMarkup:
     
     builder.row(
         InlineKeyboardButton(
-            text="🌟 1 месяц",
+            text="🌟 1 месяц - 299₽",
             callback_data="tariff:1m"
         )
     )
     builder.row(
         InlineKeyboardButton(
-            text="💎 3 месяца (выгодно!)",
+            text="💎 3 месяца - 799₽ (выгодно!)",
             callback_data="tariff:3m"
         )
     )
     builder.row(
         InlineKeyboardButton(
-            text="👑 1 год (самая выгодная!)",
+            text="👑 1 год - 2499₽ (самая выгодная!)",
             callback_data="tariff:12m"
         )
     )
