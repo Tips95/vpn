@@ -15,9 +15,9 @@ class Settings(BaseSettings):
     yookassa_shop_id: str = Field(..., env="YOOKASSA_SHOP_ID")
     yookassa_secret_key: str = Field(..., env="YOOKASSA_SECRET_KEY")
     
-    # Hiddify API
-    hiddify_api_url: str = Field(default="http://127.0.0.1:8000", env="HIDDIFY_API_URL")
-    hiddify_api_token: str = Field(..., env="HIDDIFY_API_TOKEN")
+    # X-UI API
+    hiddify_api_url: str = Field(default="http://127.0.0.1:54321", env="HIDDIFY_API_URL")
+    hiddify_api_token: str = Field(..., env="HIDDIFY_API_TOKEN")  # Пароль от X-UI панели
     
     # Server
     webhook_url: str = Field(..., env="WEBHOOK_URL")

@@ -1,22 +1,50 @@
-"""Сервис работы с Hiddify API"""
+"""Сервис работы с X-UI API"""
 import httpx
 import logging
+import time
 from typing import Optional, Dict
 
 logger = logging.getLogger(__name__)
 
 
 class HiddifyService:
-    """Сервис для работы с Hiddify VPN API"""
+    """Сервис для работы с X-UI VPN панелью"""
     
     def __init__(self, api_url: str, api_token: str, data_limit_gb: int = 100):
         self.api_url = api_url.rstrip('/')
-        self.api_token = api_token
+        self.username = "admin"  # По умолчанию для X-UI
+        self.password = api_token  # Используем api_token как пароль
         self.data_limit_gb = data_limit_gb
+        self.session_cookie = None
         
+    async def _login(self) -> bool:
+        """Авторизация в X-UI панели"""
+        try:
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                response = await client.post(
+                    f"{self.api_url}/login",
+                    data={
+                        "username": self.username,
+                        "password": self.password
+                    }
+                )
+                
+                if response.status_code == 200:
+                    # Сохраняем cookie сессии
+                    self.session_cookie = response.cookies.get("session")
+                    logger.info("Успешная авторизация в X-UI")
+                    return True
+                else:
+                    logger.error(f"Ошибка авторизации в X-UI: {response.status_code}")
+                    return False
+                    
+        except Exception as e:
+            logger.error(f"Ошибка при авторизации в X-UI: {e}")
+            return False
+            
     async def create_user(self, expire_days: int) -> Optional[Dict[str, str]]:
         """
-        Создать VPN-пользователя в Hiddify
+        Создать VPN-пользователя в X-UI
         
         Args:
             expire_days: Срок действия подписки в днях
@@ -25,36 +53,64 @@ class HiddifyService:
             {"uuid": "...", "subscription_url": "..."}
         """
         try:
+            # Авторизуемся, если еще не авторизованы
+            if not self.session_cookie:
+                if not await self._login():
+                    return None
+            
+            # Генерируем уникальный email для пользователя
+            user_email = f"user_{int(time.time())}@vpn.local"
+            
+            # Вычисляем дату истечения (timestamp в миллисекундах)
+            expire_time = int((time.time() + (expire_days * 86400)) * 1000)
+            
+            # Лимит трафика в байтах
+            total_gb = self.data_limit_gb * 1024 * 1024 * 1024
+            
             headers = {
-                "Authorization": f"Bearer {self.api_token}",
+                "Cookie": f"session={self.session_cookie}",
                 "Content-Type": "application/json"
             }
             
             payload = {
-                "expire_days": expire_days,
-                "data_limit_gb": self.data_limit_gb
+                "id": 1,  # ID inbound (обычно первый VLESS inbound)
+                "settings": {
+                    "clients": [{
+                        "id": user_email.split("@")[0],  # UUID будет email prefix
+                        "email": user_email,
+                        "enable": True,
+                        "expiryTime": expire_time,
+                        "totalGB": total_gb
+                    }]
+                }
             }
             
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
-                    f"{self.api_url}/api/user",
+                    f"{self.api_url}/xui/inbound/addClient",
                     json=payload,
                     headers=headers
                 )
                 
                 if response.status_code == 200:
                     data = response.json()
-                    logger.info(f"VPN пользователь создан: {data.get('uuid')}")
-                    return {
-                        "uuid": data.get("uuid"),
-                        "subscription_url": data.get("subscription_url")
-                    }
+                    if data.get("success"):
+                        # Получаем subscription URL
+                        sub_url = f"{self.api_url}/sub/{user_email}"
+                        logger.info(f"VPN пользователь создан: {user_email}")
+                        return {
+                            "uuid": user_email,
+                            "subscription_url": sub_url
+                        }
+                    else:
+                        logger.error(f"X-UI вернул ошибку: {data.get('msg')}")
+                        return None
                 else:
                     logger.error(f"Ошибка создания VPN: {response.status_code} - {response.text}")
                     return None
                     
         except httpx.RequestError as e:
-            logger.error(f"Ошибка подключения к Hiddify API: {e}")
+            logger.error(f"Ошибка подключения к X-UI API: {e}")
             return None
         except Exception as e:
             logger.error(f"Неожиданная ошибка при создании VPN: {e}")
@@ -65,26 +121,46 @@ class HiddifyService:
         Деактивировать VPN-пользователя
         
         Args:
-            uuid: UUID пользователя в Hiddify
+            uuid: Email пользователя в X-UI
             
         Returns:
             True если успешно
         """
         try:
+            if not self.session_cookie:
+                if not await self._login():
+                    return False
+            
             headers = {
-                "Authorization": f"Bearer {self.api_token}",
+                "Cookie": f"session={self.session_cookie}",
                 "Content-Type": "application/json"
             }
             
+            payload = {
+                "id": 1,
+                "settings": {
+                    "clients": [{
+                        "email": uuid,
+                        "enable": False  # Отключаем пользователя
+                    }]
+                }
+            }
+            
             async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.delete(
-                    f"{self.api_url}/api/user/{uuid}",
+                response = await client.post(
+                    f"{self.api_url}/xui/inbound/updateClient/{uuid}",
+                    json=payload,
                     headers=headers
                 )
                 
                 if response.status_code == 200:
-                    logger.info(f"VPN пользователь деактивирован: {uuid}")
-                    return True
+                    data = response.json()
+                    if data.get("success"):
+                        logger.info(f"VPN пользователь деактивирован: {uuid}")
+                        return True
+                    else:
+                        logger.error(f"Ошибка деактивации: {data.get('msg')}")
+                        return False
                 else:
                     logger.error(f"Ошибка деактивации VPN: {response.status_code}")
                     return False
@@ -98,25 +174,42 @@ class HiddifyService:
         Получить информацию о VPN-пользователе
         
         Args:
-            uuid: UUID пользователя в Hiddify
+            uuid: Email пользователя в X-UI
             
         Returns:
             Информация о пользователе
         """
         try:
+            if not self.session_cookie:
+                if not await self._login():
+                    return None
+            
             headers = {
-                "Authorization": f"Bearer {self.api_token}",
+                "Cookie": f"session={self.session_cookie}",
                 "Content-Type": "application/json"
             }
             
             async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.get(
-                    f"{self.api_url}/api/user/{uuid}",
+                response = await client.post(
+                    f"{self.api_url}/xui/inbound/list",
                     headers=headers
                 )
                 
                 if response.status_code == 200:
-                    return response.json()
+                    data = response.json()
+                    if data.get("success"):
+                        # Ищем клиента по email в списке inbound'ов
+                        for inbound in data.get("obj", []):
+                            settings = inbound.get("settings", {})
+                            clients = settings.get("clients", [])
+                            for client in clients:
+                                if client.get("email") == uuid:
+                                    return client
+                        logger.warning(f"Пользователь {uuid} не найден")
+                        return None
+                    else:
+                        logger.error(f"X-UI вернул ошибку: {data.get('msg')}")
+                        return None
                 else:
                     logger.error(f"Ошибка получения инфо VPN: {response.status_code}")
                     return None
