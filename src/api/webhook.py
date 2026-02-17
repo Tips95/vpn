@@ -37,14 +37,9 @@ async def yookassa_webhook(
     Вызывается при изменении статуса платежа
     """
     try:
-        # Проверка секретного ключа
-        if x_webhook_secret != settings.webhook_secret:
-            logger.warning("Неверный webhook secret")
-            raise HTTPException(status_code=403, detail="Invalid webhook secret")
-        
         # Получить данные webhook
         webhook_data = await request.json()
-        logger.info(f"Получен webhook: {webhook_data}")
+        logger.info(f"Получен webhook от YooKassa: {webhook_data.get('event', 'unknown')}")
         
         # Проверить тип события
         event_type = webhook_data.get("event")
