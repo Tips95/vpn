@@ -76,3 +76,41 @@ def get_back_keyboard() -> InlineKeyboardMarkup:
     )
     
     return builder.as_markup()
+
+
+def get_admin_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура администратора"""
+    builder = InlineKeyboardBuilder()
+    
+    builder.row(
+        InlineKeyboardButton(
+            text="📊 Статистика",
+            callback_data="admin_stats"
+        )
+    )
+    builder.row(
+        InlineKeyboardButton(
+            text="👥 Все пользователи",
+            callback_data="admin_users"
+        )
+    )
+    builder.row(
+        InlineKeyboardButton(
+            text="📝 Активные подписки",
+            callback_data="admin_subscriptions"
+        )
+    )
+    builder.row(
+        InlineKeyboardButton(
+            text="🎁 Получить тестовый VPN",
+            callback_data="admin_test_vpn"
+        )
+    )
+    builder.row(
+        InlineKeyboardButton(
+            text="◀️ Назад к тарифам",
+            callback_data="back_to_tariffs"
+        )
+    )
+    
+    return builder.as_markup()

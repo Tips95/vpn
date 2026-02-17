@@ -41,6 +41,9 @@ class Settings(BaseSettings):
     trial_period_days: int = Field(default=7, env="TRIAL_PERIOD_DAYS")
     trial_enabled: bool = Field(default=True, env="TRIAL_ENABLED")
     
+    # Admin users (telegram IDs separated by comma)
+    admin_users: str = Field(default="", env="ADMIN_USERS")
+    
     @validator("database_path")
     def create_db_directory(cls, v):
         """Создать директорию для базы данных"""
@@ -78,6 +81,13 @@ class Settings(BaseSettings):
             }
         }
         return tariffs.get(tariff_id)
+    
+    def is_admin(self, telegram_id: int) -> bool:
+        """Проверить, является ли пользователь администратором"""
+        if not self.admin_users:
+            return False
+        admin_ids = [int(id.strip()) for id in self.admin_users.split(',') if id.strip()]
+        return telegram_id in admin_ids
     
     class Config:
         env_file = ".env"

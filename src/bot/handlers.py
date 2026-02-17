@@ -11,7 +11,7 @@ from src.database.models import Database
 from src.services.payment_service import PaymentService
 from src.services.hiddify_service import HiddifyService
 from src.services.notification_service import NotificationService
-from src.bot.keyboards import get_tariffs_keyboard, get_payment_keyboard, get_back_keyboard
+from src.bot.keyboards import get_tariffs_keyboard, get_payment_keyboard, get_back_keyboard, get_admin_keyboard
 
 logger = logging.getLogger(__name__)
 
@@ -289,6 +289,171 @@ async def cmd_help(message: Message):
 """
     
     await message.answer(help_text)
+
+
+@router.message(Command("admin"))
+async def cmd_admin(message: Message):
+    """Админ-панель (только для администраторов)"""
+    if not settings.is_admin(message.from_user.id):
+        await message.answer("⛔️ У вас нет доступа к админ-панели")
+        return
+    
+    await message.answer(
+        "🔧 <b>Админ-панель</b>\n\n"
+        "Выберите действие:",
+        reply_markup=get_admin_keyboard(),
+        parse_mode="HTML"
+    )
+
+
+@router.callback_query(F.data == "admin_stats")
+async def admin_stats(callback: CallbackQuery):
+    """Показать статистику"""
+    if not settings.is_admin(callback.from_user.id):
+        await callback.answer("⛔️ Доступ запрещен", show_alert=True)
+        return
+    
+    # Получить статистику из БД
+    conn = await db.get_connection()
+    try:
+        cursor = await conn.execute("SELECT COUNT(*) FROM users")
+        total_users = (await cursor.fetchone())[0]
+        
+        cursor = await conn.execute("SELECT COUNT(*) FROM subscriptions WHERE is_active = 1")
+        active_subs = (await cursor.fetchone())[0]
+        
+        cursor = await conn.execute("SELECT COUNT(*) FROM payments WHERE status = 'succeeded'")
+        total_payments = (await cursor.fetchone())[0]
+        
+        cursor = await conn.execute("SELECT SUM(amount) FROM payments WHERE status = 'succeeded'")
+        total_revenue = (await cursor.fetchone())[0] or 0
+        
+        text = (
+            "📊 <b>Статистика бота</b>\n\n"
+            f"👥 Всего пользователей: <b>{total_users}</b>\n"
+            f"📝 Активных подписок: <b>{active_subs}</b>\n"
+            f"💰 Успешных платежей: <b>{total_payments}</b>\n"
+            f"💵 Общий доход: <b>{total_revenue / 100:.2f} ₽</b>"
+        )
+        
+        await callback.message.edit_text(text, reply_markup=get_admin_keyboard(), parse_mode="HTML")
+        await callback.answer()
+    finally:
+        await conn.close()
+
+
+@router.callback_query(F.data == "admin_users")
+async def admin_users(callback: CallbackQuery):
+    """Показать список пользователей"""
+    if not settings.is_admin(callback.from_user.id):
+        await callback.answer("⛔️ Доступ запрещен", show_alert=True)
+        return
+    
+    conn = await db.get_connection()
+    try:
+        cursor = await conn.execute(
+            "SELECT telegram_id, created_at FROM users ORDER BY created_at DESC LIMIT 20"
+        )
+        users = await cursor.fetchall()
+        
+        text = "👥 <b>Последние 20 пользователей:</b>\n\n"
+        for user in users:
+            text += f"ID: <code>{user[0]}</code> | {user[1]}\n"
+        
+        await callback.message.edit_text(text, reply_markup=get_admin_keyboard(), parse_mode="HTML")
+        await callback.answer()
+    finally:
+        await conn.close()
+
+
+@router.callback_query(F.data == "admin_subscriptions")
+async def admin_subscriptions(callback: CallbackQuery):
+    """Показать активные подписки"""
+    if not settings.is_admin(callback.from_user.id):
+        await callback.answer("⛔️ Доступ запрещен", show_alert=True)
+        return
+    
+    conn = await db.get_connection()
+    try:
+        cursor = await conn.execute("""
+            SELECT s.id, u.telegram_id, s.tariff, s.expires_at, s.hiddify_uuid
+            FROM subscriptions s
+            JOIN users u ON s.user_id = u.id
+            WHERE s.is_active = 1
+            ORDER BY s.created_at DESC
+            LIMIT 15
+        """)
+        subs = await cursor.fetchall()
+        
+        if not subs:
+            text = "📝 <b>Нет активных подписок</b>"
+        else:
+            text = "📝 <b>Активные подписки (последние 15):</b>\n\n"
+            for sub in subs:
+                tariff_name = sub[2] if sub[2] != "trial" else "Пробный период"
+                text += (
+                    f"🆔 <code>{sub[1]}</code> | {tariff_name}\n"
+                    f"   Истекает: {sub[3]}\n\n"
+                )
+        
+        await callback.message.edit_text(text, reply_markup=get_admin_keyboard(), parse_mode="HTML")
+        await callback.answer()
+    finally:
+        await conn.close()
+
+
+@router.callback_query(F.data == "admin_test_vpn")
+async def admin_test_vpn(callback: CallbackQuery):
+    """Создать тестовый VPN для админа"""
+    if not settings.is_admin(callback.from_user.id):
+        await callback.answer("⛔️ Доступ запрещен", show_alert=True)
+        return
+    
+    await callback.answer("⏳ Создаю VPN...", show_alert=False)
+    
+    # Создать VPN на 30 дней
+    vpn_data = await hiddify_service.create_user(expire_days=30)
+    
+    if vpn_data:
+        # Получить user_id
+        conn = await db.get_connection()
+        try:
+            cursor = await conn.execute(
+                "SELECT id FROM users WHERE telegram_id = ?",
+                (callback.from_user.id,)
+            )
+            user = await cursor.fetchone()
+            
+            if user:
+                # Сохранить подписку
+                expires_at = (datetime.utcnow() + timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")
+                await db.create_subscription(
+                    user_id=user[0],
+                    tariff="admin_test",
+                    hiddify_uuid=vpn_data["uuid"],
+                    subscription_url=vpn_data["subscription_url"],
+                    expires_at=expires_at
+                )
+        finally:
+            await conn.close()
+        
+        text = (
+            "✅ <b>Тестовый VPN создан!</b>\n\n"
+            "📅 Срок: 30 дней\n"
+            "💾 Трафик: 100 GB\n\n"
+            "🔗 <b>Ваша подписка:</b>\n"
+            f"<code>{vpn_data['subscription_url']}</code>\n\n"
+            "📱 Скопируйте ссылку и добавьте в приложение V2rayNG/V2Box"
+        )
+        await callback.message.answer(text, parse_mode="HTML")
+        await callback.message.edit_text(
+            "🔧 <b>Админ-панель</b>",
+            reply_markup=get_admin_keyboard(),
+            parse_mode="HTML"
+        )
+    else:
+        await callback.message.answer("❌ Ошибка создания VPN")
+        await callback.answer()
 
 
 @router.message()
