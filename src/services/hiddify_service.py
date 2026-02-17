@@ -82,7 +82,7 @@ class HiddifyService:
             
             async with httpx.AsyncClient(timeout=30.0) as client:
                 # Получаем список inbound'ов
-                inbound_response = await client.post(
+                inbound_response = await client.get(
                     f"{self.api_url}/panel/api/inbounds/list",
                     headers=headers
                 )
@@ -110,33 +110,44 @@ class HiddifyService:
                 # Лимит трафика в байтах
                 total_gb = self.data_limit_gb * 1024 * 1024 * 1024
                 
-                # Payload для 3x-ui API
+                # Payload для 3x-ui API (правильный формат)
                 client_data = {
-                    "id": inbound_id,
-                    "settings": json.dumps({
+                    "id": inbound_id,  # Числовой ID inbound
+                    "settings": {
                         "clients": [{
                             "id": client_uuid,
+                            "flow": "",
                             "email": user_email,
-                            "enable": True,
-                            "expiryTime": expire_time,
+                            "limitIp": 0,
                             "totalGB": total_gb,
-                            "flow": ""
+                            "expiryTime": expire_time,
+                            "enable": True,
+                            "tgId": "",
+                            "subId": "",
+                            "comment": "",
+                            "reset": 0
                         }]
-                    })
+                    }
                 }
                 
                 # Добавляем клиента
                 response = await client.post(
                     f"{self.api_url}/panel/api/inbounds/addClient",
-                    data=client_data,  # Используем form data, а не json
-                    headers={"Cookie": self.session_cookie}
+                    json=client_data,  # Используем JSON
+                    headers={
+                        "Cookie": self.session_cookie,
+                        "Content-Type": "application/json"
+                    }
                 )
                 
                 if response.status_code == 200:
                     data = response.json()
                     if data.get("success"):
-                        # Получаем subscription URL (обычно на порту 2096)
-                        sub_url = f"http://{self.api_url.split('//')[1].split(':')[0]}:2096/{client_uuid}"
+                        # Получаем информацию о созданном клиенте
+                        # Subscription URL формируется на основе email клиента
+                        # Формат: http://IP:2096/sub/INBOUND_ID/EMAIL
+                        sub_url = f"http://{self.api_url.split('//')[1].split(':')[0]}:2096/sub/{inbound_id}/{user_email}"
+                        
                         logger.info(f"VPN пользователь создан: {user_email} (UUID: {client_uuid})")
                         return {
                             "uuid": client_uuid,
