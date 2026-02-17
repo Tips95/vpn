@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     hiddify_api_token: str = Field(..., env="HIDDIFY_API_TOKEN")  # Пароль от 3x-ui панели
     
     # Server
+    server_host: str = Field(..., env="SERVER_HOST")  # Внешний IP или домен сервера (для subscription URL)
     webhook_url: str = Field(..., env="WEBHOOK_URL")
     webhook_secret: str = Field(..., env="WEBHOOK_SECRET")
     api_host: str = Field(default="0.0.0.0", env="API_HOST")

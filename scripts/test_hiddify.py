@@ -18,6 +18,7 @@ async def test_hiddify():
     service = HiddifyService(
         settings.hiddify_api_url,
         settings.hiddify_api_token,
+        settings.server_host,
         settings.vpn_data_limit_gb
     )
     

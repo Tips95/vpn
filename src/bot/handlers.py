@@ -21,6 +21,7 @@ payment_service = PaymentService(settings.yookassa_shop_id, settings.yookassa_se
 hiddify_service = HiddifyService(
     settings.hiddify_api_url,
     settings.hiddify_api_token,
+    settings.server_host,
     settings.vpn_data_limit_gb
 )
 notification_service = NotificationService(settings.telegram_bot_token)

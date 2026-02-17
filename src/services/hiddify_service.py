@@ -10,11 +10,12 @@ logger = logging.getLogger(__name__)
 
 
 class HiddifyService:
-    """Сервис для работы с X-UI VPN панелью"""
+    """Сервис для работы с 3x-ui VPN панелью"""
     
-    def __init__(self, api_url: str, api_token: str, data_limit_gb: int = 100):
+    def __init__(self, api_url: str, api_token: str, server_host: str, data_limit_gb: int = 100):
         self.api_url = api_url.rstrip('/')
-        self.username = "admin"  # По умолчанию для X-UI
+        self.server_host = server_host  # Внешний IP или домен для subscription URL
+        self.username = "admin"  # По умолчанию для 3x-ui
         self.password = api_token  # Используем api_token как пароль
         self.data_limit_gb = data_limit_gb
         self.session_cookie = None
@@ -148,9 +149,9 @@ class HiddifyService:
                         # Получаем информацию о созданном клиенте
                         # Subscription URL формируется на основе email клиента
                         # Формат: http://IP:2096/sub/INBOUND_ID/EMAIL
-                        sub_url = f"http://{self.api_url.split('//')[1].split(':')[0]}:2096/sub/{inbound_id}/{user_email}"
+                        sub_url = f"http://{self.server_host}:2096/sub/{inbound_id}/{user_email}"
                         
-                        logger.info(f"VPN пользователь создан: {user_email} (UUID: {client_uuid})")
+                        logger.info(f"VPN пользователь создан: {user_email} (UUID: {client_uuid}), subscription: {sub_url}")
                         return {
                             "uuid": client_uuid,
                             "subscription_url": sub_url

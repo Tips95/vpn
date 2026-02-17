@@ -19,6 +19,7 @@ db = Database(settings.database_path)
 hiddify_service = HiddifyService(
     settings.hiddify_api_url,
     settings.hiddify_api_token,
+    settings.server_host,
     settings.vpn_data_limit_gb
 )
 payment_service = PaymentService(settings.yookassa_shop_id, settings.yookassa_secret_key)
