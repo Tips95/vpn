@@ -1,5 +1,6 @@
 """Обработчики команд Telegram-бота"""
 import logging
+import aiosqlite
 from datetime import datetime, timedelta
 from aiogram import Router, F
 from aiogram.filters import Command
@@ -314,8 +315,7 @@ async def admin_stats(callback: CallbackQuery):
         return
     
     # Получить статистику из БД
-    conn = await db.get_connection()
-    try:
+    async with aiosqlite.connect(db.db_path) as conn:
         cursor = await conn.execute("SELECT COUNT(*) FROM users")
         total_users = (await cursor.fetchone())[0]
         
@@ -338,8 +338,6 @@ async def admin_stats(callback: CallbackQuery):
         
         await callback.message.edit_text(text, reply_markup=get_admin_keyboard(), parse_mode="HTML")
         await callback.answer()
-    finally:
-        await conn.close()
 
 
 @router.callback_query(F.data == "admin_users")
@@ -349,8 +347,7 @@ async def admin_users(callback: CallbackQuery):
         await callback.answer("⛔️ Доступ запрещен", show_alert=True)
         return
     
-    conn = await db.get_connection()
-    try:
+    async with aiosqlite.connect(db.db_path) as conn:
         cursor = await conn.execute(
             "SELECT telegram_id, created_at FROM users ORDER BY created_at DESC LIMIT 20"
         )
@@ -362,8 +359,6 @@ async def admin_users(callback: CallbackQuery):
         
         await callback.message.edit_text(text, reply_markup=get_admin_keyboard(), parse_mode="HTML")
         await callback.answer()
-    finally:
-        await conn.close()
 
 
 @router.callback_query(F.data == "admin_subscriptions")
@@ -373,8 +368,7 @@ async def admin_subscriptions(callback: CallbackQuery):
         await callback.answer("⛔️ Доступ запрещен", show_alert=True)
         return
     
-    conn = await db.get_connection()
-    try:
+    async with aiosqlite.connect(db.db_path) as conn:
         cursor = await conn.execute("""
             SELECT s.id, u.telegram_id, s.tariff, s.expires_at, s.hiddify_uuid
             FROM subscriptions s
@@ -398,8 +392,6 @@ async def admin_subscriptions(callback: CallbackQuery):
         
         await callback.message.edit_text(text, reply_markup=get_admin_keyboard(), parse_mode="HTML")
         await callback.answer()
-    finally:
-        await conn.close()
 
 
 @router.callback_query(F.data == "admin_test_vpn")
@@ -416,8 +408,7 @@ async def admin_test_vpn(callback: CallbackQuery):
     
     if vpn_data:
         # Получить user_id
-        conn = await db.get_connection()
-        try:
+        async with aiosqlite.connect(db.db_path) as conn:
             cursor = await conn.execute(
                 "SELECT id FROM users WHERE telegram_id = ?",
                 (callback.from_user.id,)
@@ -434,8 +425,6 @@ async def admin_test_vpn(callback: CallbackQuery):
                     subscription_url=vpn_data["subscription_url"],
                     expires_at=expires_at
                 )
-        finally:
-            await conn.close()
         
         text = (
             "✅ <b>Тестовый VPN создан!</b>\n\n"
