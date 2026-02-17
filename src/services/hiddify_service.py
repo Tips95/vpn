@@ -110,24 +110,26 @@ class HiddifyService:
                 # Лимит трафика в байтах
                 total_gb = self.data_limit_gb * 1024 * 1024 * 1024
                 
-                # Payload для 3x-ui API (правильный формат)
+                # Payload для 3x-ui API (settings должен быть JSON-строкой!)
+                settings_json = json.dumps({
+                    "clients": [{
+                        "id": client_uuid,
+                        "flow": "",
+                        "email": user_email,
+                        "limitIp": 0,
+                        "totalGB": total_gb,
+                        "expiryTime": expire_time,
+                        "enable": True,
+                        "tgId": "",
+                        "subId": "",
+                        "comment": "",
+                        "reset": 0
+                    }]
+                })
+                
                 client_data = {
                     "id": inbound_id,  # Числовой ID inbound
-                    "settings": {
-                        "clients": [{
-                            "id": client_uuid,
-                            "flow": "",
-                            "email": user_email,
-                            "limitIp": 0,
-                            "totalGB": total_gb,
-                            "expiryTime": expire_time,
-                            "enable": True,
-                            "tgId": "",
-                            "subId": "",
-                            "comment": "",
-                            "reset": 0
-                        }]
-                    }
+                    "settings": settings_json  # JSON-строка, не объект!
                 }
                 
                 # Добавляем клиента
