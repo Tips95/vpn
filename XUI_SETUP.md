@@ -1,9 +1,9 @@
-# Настройка X-UI панели
+# Настройка 3x-ui панели
 
 ## Доступ к панели
 
-После установки X-UI доступна по адресу:
-- **URL**: `http://ВАШ_IP:54321`
+После установки 3x-ui доступна по адресу:
+- **URL**: `http://ВАШ_IP:2053`
 - **Логин по умолчанию**: `admin`
 - **Пароль по умолчанию**: `admin`
 
@@ -13,7 +13,7 @@
 
 ### 1. Вход в панель
 
-Откройте в браузере `http://ВАШ_IP:54321` и войдите с дефолтными учетными данными.
+Откройте в браузере `http://ВАШ_IP:2053` и войдите с дефолтными учетными данными.
 
 ### 2. Смена пароля
 
@@ -49,7 +49,7 @@ X-UI по умолчанию может не иметь настроенных i
 
 1. Перейдите в **Settings** → **Subscription**
 2. Включите **Enable Subscription**
-3. Укажите **Subscription URL**: `http://ВАШ_IP:54321` или ваш домен
+3. Укажите **Subscription URL**: `http://ВАШ_IP:2053` или ваш домен
 4. Сохраните
 
 ### 5. Настройка SSL (опционально, для продакшена)
@@ -75,11 +75,11 @@ certbot certonly --standalone -d ваш-домен.com
 
 ```bash
 # Получение списка inbound'ов
-curl -X POST http://ВАШ_IP:54321/login \
+curl -X POST http://ВАШ_IP:2053/login \
   -d "username=admin&password=admin"
 
 # Сохраните полученную cookie сессии
-curl -X POST http://ВАШ_IP:54321/xui/inbound/list \
+curl -X POST http://ВАШ_IP:2053/panel/api/inbounds/list \
   -H "Cookie: session=ВАША_СЕССИЯ"
 ```
 
@@ -102,7 +102,7 @@ nano .env
 
 Убедитесь, что указаны:
 ```
-HIDDIFY_API_URL=http://127.0.0.1:54321
+HIDDIFY_API_URL=http://127.0.0.1:2053
 HIDDIFY_API_TOKEN=ВАШ_НОВЫЙ_ПАРОЛЬ
 ```
 
@@ -128,7 +128,7 @@ journalctl -u vpn-bot -f
 
 ### Панель не открывается
 - Проверьте, запущен ли контейнер: `docker ps | grep xui`
-- Проверьте firewall: `ufw allow 54321/tcp`
+- Проверьте firewall: `ufw allow 2053/tcp`
 
 ### Не создаются пользователи
 - Убедитесь, что создан хотя бы один inbound

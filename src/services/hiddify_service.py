@@ -1,7 +1,9 @@
-"""Сервис работы с X-UI API"""
+"""Сервис работы с 3x-ui API"""
 import httpx
 import logging
 import time
+import json
+import uuid
 from typing import Optional, Dict
 
 logger = logging.getLogger(__name__)
@@ -18,7 +20,7 @@ class HiddifyService:
         self.session_cookie = None
         
     async def _login(self) -> bool:
-        """Авторизация в X-UI панели"""
+        """Авторизация в 3x-ui панели"""
         try:
             async with httpx.AsyncClient(timeout=30.0) as client:
                 response = await client.post(
@@ -26,20 +28,33 @@ class HiddifyService:
                     data={
                         "username": self.username,
                         "password": self.password
-                    }
+                    },
+                    follow_redirects=True
                 )
                 
                 if response.status_code == 200:
-                    # Сохраняем cookie сессии
-                    self.session_cookie = response.cookies.get("session")
-                    logger.info("Успешная авторизация в X-UI")
-                    return True
+                    # Сохраняем все cookies
+                    self.session_cookie = "; ".join([f"{k}={v}" for k, v in response.cookies.items()])
+                    if self.session_cookie:
+                        logger.info("Успешная авторизация в 3x-ui")
+                        return True
+                    else:
+                        # Проверяем ответ
+                        try:
+                            data = response.json()
+                            if data.get("success"):
+                                logger.info("Успешная авторизация в 3x-ui (по ответу)")
+                                return True
+                        except:
+                            pass
+                        logger.error("Не получены cookies после авторизации")
+                        return False
                 else:
-                    logger.error(f"Ошибка авторизации в X-UI: {response.status_code}")
+                    logger.error(f"Ошибка авторизации в 3x-ui: {response.status_code}")
                     return False
                     
         except Exception as e:
-            logger.error(f"Ошибка при авторизации в X-UI: {e}")
+            logger.error(f"Ошибка при авторизации в 3x-ui: {e}")
             return False
             
     async def create_user(self, expire_days: int) -> Optional[Dict[str, str]]:
@@ -58,52 +73,77 @@ class HiddifyService:
                 if not await self._login():
                     return None
             
-            # Генерируем уникальный email для пользователя
-            user_email = f"user_{int(time.time())}@vpn.local"
-            
-            # Вычисляем дату истечения (timestamp в миллисекундах)
-            expire_time = int((time.time() + (expire_days * 86400)) * 1000)
-            
-            # Лимит трафика в байтах
-            total_gb = self.data_limit_gb * 1024 * 1024 * 1024
-            
+            # Сначала получим список inbound'ов
             headers = {
-                "Cookie": f"session={self.session_cookie}",
-                "Content-Type": "application/json"
-            }
-            
-            payload = {
-                "id": 1,  # ID inbound (обычно первый VLESS inbound)
-                "settings": {
-                    "clients": [{
-                        "id": user_email.split("@")[0],  # UUID будет email prefix
-                        "email": user_email,
-                        "enable": True,
-                        "expiryTime": expire_time,
-                        "totalGB": total_gb
-                    }]
-                }
+                "Cookie": self.session_cookie,
+                "Content-Type": "application/json",
+                "Accept": "application/json"
             }
             
             async with httpx.AsyncClient(timeout=30.0) as client:
-                response = await client.post(
-                    f"{self.api_url}/xui/inbound/addClient",
-                    json=payload,
+                # Получаем список inbound'ов
+                inbound_response = await client.post(
+                    f"{self.api_url}/panel/api/inbounds/list",
                     headers=headers
+                )
+                
+                if inbound_response.status_code != 200:
+                    logger.error(f"Не удалось получить список inbound'ов: {inbound_response.status_code}")
+                    return None
+                
+                inbounds_data = inbound_response.json()
+                if not inbounds_data.get("success") or not inbounds_data.get("obj"):
+                    logger.error("Нет созданных inbound'ов в 3x-ui. Создайте inbound через веб-интерфейс!")
+                    return None
+                
+                # Используем первый доступный inbound
+                inbound_id = inbounds_data["obj"][0]["id"]
+                logger.info(f"Используем inbound ID: {inbound_id}")
+                
+                # Генерируем UUID и email для клиента
+                client_uuid = str(uuid.uuid4())
+                user_email = f"user_{int(time.time())}@vpn.local"
+                
+                # Вычисляем дату истечения (timestamp в миллисекундах)
+                expire_time = int((time.time() + (expire_days * 86400)) * 1000)
+                
+                # Лимит трафика в байтах
+                total_gb = self.data_limit_gb * 1024 * 1024 * 1024
+                
+                # Payload для 3x-ui API
+                client_data = {
+                    "id": inbound_id,
+                    "settings": json.dumps({
+                        "clients": [{
+                            "id": client_uuid,
+                            "email": user_email,
+                            "enable": True,
+                            "expiryTime": expire_time,
+                            "totalGB": total_gb,
+                            "flow": ""
+                        }]
+                    })
+                }
+                
+                # Добавляем клиента
+                response = await client.post(
+                    f"{self.api_url}/panel/api/inbounds/addClient",
+                    data=client_data,  # Используем form data, а не json
+                    headers={"Cookie": self.session_cookie}
                 )
                 
                 if response.status_code == 200:
                     data = response.json()
                     if data.get("success"):
-                        # Получаем subscription URL
-                        sub_url = f"{self.api_url}/sub/{user_email}"
-                        logger.info(f"VPN пользователь создан: {user_email}")
+                        # Получаем subscription URL (обычно на порту 2096)
+                        sub_url = f"http://{self.api_url.split('//')[1].split(':')[0]}:2096/{client_uuid}"
+                        logger.info(f"VPN пользователь создан: {user_email} (UUID: {client_uuid})")
                         return {
-                            "uuid": user_email,
+                            "uuid": client_uuid,
                             "subscription_url": sub_url
                         }
                     else:
-                        logger.error(f"X-UI вернул ошибку: {data.get('msg')}")
+                        logger.error(f"3x-ui вернул ошибку: {data.get('msg')}")
                         return None
                 else:
                     logger.error(f"Ошибка создания VPN: {response.status_code} - {response.text}")
