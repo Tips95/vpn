@@ -4,7 +4,9 @@ import logging
 import time
 import json
 import uuid
+import base64
 from typing import Optional, Dict
+from urllib.parse import quote
 
 logger = logging.getLogger(__name__)
 
@@ -146,15 +148,26 @@ class HiddifyService:
                 if response.status_code == 200:
                     data = response.json()
                     if data.get("success"):
-                        # Получаем информацию о созданном клиенте
-                        # Subscription URL формируется на основе email клиента
-                        # Формат: http://IP:2096/sub/INBOUND_ID/EMAIL
+                        # Получаем данные inbound для формирования VLESS-ссылки
+                        inbound = inbounds_data["obj"][0]
+                        port = inbound.get("port", 443)
+                        remark = inbound.get("remark", "VPN")
+                        
+                        # Формируем VLESS-ссылку (прямое подключение)
+                        # Формат: vless://UUID@HOST:PORT?type=tcp&security=none#REMARK
+                        vless_link = f"vless://{client_uuid}@{self.server_host}:{port}?type=tcp&security=none&encryption=none#{quote(user_email)}"
+                        
+                        # Также формируем subscription URL (может не работать без настройки)
                         sub_url = f"http://{self.server_host}:2096/sub/{inbound_id}/{user_email}"
                         
-                        logger.info(f"VPN пользователь создан: {user_email} (UUID: {client_uuid}), subscription: {sub_url}")
+                        logger.info(f"VPN пользователь создан: {user_email} (UUID: {client_uuid})")
+                        logger.info(f"VLESS: {vless_link}")
+                        
                         return {
                             "uuid": client_uuid,
-                            "subscription_url": sub_url
+                            "subscription_url": vless_link,  # Отдаём прямую VLESS-ссылку
+                            "vless_link": vless_link,
+                            "sub_url": sub_url
                         }
                     else:
                         logger.error(f"3x-ui вернул ошибку: {data.get('msg')}")

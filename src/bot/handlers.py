@@ -429,9 +429,13 @@ async def admin_test_vpn(callback: CallbackQuery):
             "✅ <b>Тестовый VPN создан!</b>\n\n"
             "📅 Срок: 30 дней\n"
             "💾 Трафик: 100 GB\n\n"
-            "🔗 <b>Ваша подписка:</b>\n"
+            "🔗 <b>Ваш VPN-ключ:</b>\n"
             f"<code>{vpn_data['subscription_url']}</code>\n\n"
-            "📱 Скопируйте ссылку и добавьте в приложение V2rayNG/V2Box"
+            "📱 <b>Как подключиться:</b>\n"
+            "1. Скопируйте ссылку выше\n"
+            "2. Откройте V2rayNG/V2Box/Shadowrocket\n"
+            "3. Нажмите '+' → 'Import from clipboard'\n"
+            "4. Подключитесь к серверу!"
         )
         await callback.message.answer(text, parse_mode="HTML")
         await callback.message.edit_text(
