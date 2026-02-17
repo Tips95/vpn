@@ -113,11 +113,20 @@ class HiddifyService:
                 # Лимит трафика в байтах
                 total_gb = self.data_limit_gb * 1024 * 1024 * 1024
                 
+                # Определяем flow в зависимости от security
+                inbound = inbounds_data["obj"][0]
+                stream_settings = inbound.get("streamSettings", "{}")
+                if isinstance(stream_settings, str):
+                    stream_settings = json.loads(stream_settings)
+                
+                security = stream_settings.get("security", "none")
+                flow = "xtls-rprx-vision" if security == "reality" else ""
+                
                 # Payload для 3x-ui API (settings должен быть JSON-строкой!)
                 settings_json = json.dumps({
                     "clients": [{
                         "id": client_uuid,
-                        "flow": "",
+                        "flow": flow,
                         "email": user_email,
                         "limitIp": 0,
                         "totalGB": total_gb,
@@ -153,21 +162,65 @@ class HiddifyService:
                         port = inbound.get("port", 443)
                         remark = inbound.get("remark", "VPN")
                         
-                        # Формируем VLESS-ссылку (прямое подключение)
-                        # Формат: vless://UUID@HOST:PORT?type=tcp&security=none#REMARK
-                        vless_link = f"vless://{client_uuid}@{self.server_host}:{port}?type=tcp&security=none&encryption=none#{quote(user_email)}"
+                        # Парсим streamSettings для определения типа security
+                        stream_settings = inbound.get("streamSettings", "{}")
+                        if isinstance(stream_settings, str):
+                            stream_settings = json.loads(stream_settings)
                         
-                        # Также формируем subscription URL (может не работать без настройки)
-                        sub_url = f"http://{self.server_host}:2096/sub/{inbound_id}/{user_email}"
+                        network = stream_settings.get("network", "tcp")
+                        security = stream_settings.get("security", "none")
+                        
+                        # Базовые параметры
+                        params = {
+                            "type": network,
+                            "encryption": "none"
+                        }
+                        
+                        # Добавляем параметры в зависимости от типа security
+                        if security == "reality":
+                            reality_settings = stream_settings.get("realitySettings", {})
+                            params["security"] = "reality"
+                            params["pbk"] = reality_settings.get("publicKey", "")
+                            params["fp"] = reality_settings.get("fingerprint", "chrome")
+                            
+                            # SNI из serverNames (берём первый)
+                            server_names = reality_settings.get("serverNames", [])
+                            if server_names:
+                                params["sni"] = server_names[0]
+                            
+                            # Short IDs (берём первый)
+                            short_ids = reality_settings.get("shortIds", [])
+                            if short_ids:
+                                params["sid"] = short_ids[0]
+                            
+                            # Flow для Reality (обязательно!)
+                            params["flow"] = "xtls-rprx-vision"
+                            
+                        elif security == "tls":
+                            params["security"] = "tls"
+                            tls_settings = stream_settings.get("tlsSettings", {})
+                            server_names = tls_settings.get("serverName", "")
+                            if server_names:
+                                params["sni"] = server_names
+                            params["fp"] = "chrome"
+                        else:
+                            params["security"] = "none"
+                        
+                        # Формируем query string
+                        query_parts = [f"{k}={quote(str(v))}" for k, v in params.items() if v]
+                        query_string = "&".join(query_parts)
+                        
+                        # Формируем VLESS-ссылку
+                        vless_link = f"vless://{client_uuid}@{self.server_host}:{port}?{query_string}#{quote(user_email)}"
                         
                         logger.info(f"VPN пользователь создан: {user_email} (UUID: {client_uuid})")
+                        logger.info(f"Security: {security}, Network: {network}")
                         logger.info(f"VLESS: {vless_link}")
                         
                         return {
                             "uuid": client_uuid,
-                            "subscription_url": vless_link,  # Отдаём прямую VLESS-ссылку
-                            "vless_link": vless_link,
-                            "sub_url": sub_url
+                            "subscription_url": vless_link,
+                            "vless_link": vless_link
                         }
                     else:
                         logger.error(f"3x-ui вернул ошибку: {data.get('msg')}")
