@@ -179,17 +179,33 @@ class HiddifyService:
                         # Добавляем параметры в зависимости от типа security
                         if security == "reality":
                             reality_settings = stream_settings.get("realitySettings", {})
+                            logger.info(f"Reality settings: {reality_settings}")
                             params["security"] = "reality"
-                            params["pbk"] = reality_settings.get("publicKey", "")
+                            
+                            # Public Key (обязательно!)
+                            pbk = reality_settings.get("publicKey", "")
+                            if not pbk:
+                                # Пытаемся получить из других возможных полей
+                                pbk = reality_settings.get("settings", {}).get("publicKey", "")
+                            
+                            if pbk:
+                                params["pbk"] = pbk
+                            else:
+                                logger.warning("Public Key не найден в настройках Reality!")
+                            
                             params["fp"] = reality_settings.get("fingerprint", "chrome")
                             
                             # SNI из serverNames (берём первый)
                             server_names = reality_settings.get("serverNames", [])
+                            if isinstance(server_names, str):
+                                server_names = [server_names]
                             if server_names:
                                 params["sni"] = server_names[0]
                             
                             # Short IDs (берём первый)
                             short_ids = reality_settings.get("shortIds", [])
+                            if isinstance(short_ids, str):
+                                short_ids = [short_ids]
                             if short_ids:
                                 params["sid"] = short_ids[0]
                             
