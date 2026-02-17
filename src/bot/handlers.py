@@ -417,13 +417,12 @@ async def admin_test_vpn(callback: CallbackQuery):
             
             if user:
                 # Сохранить подписку
-                expires_at = (datetime.utcnow() + timedelta(days=30)).strftime("%Y-%m-%d %H:%M:%S")
                 await db.create_subscription(
                     user_id=user[0],
                     tariff="admin_test",
                     hiddify_uuid=vpn_data["uuid"],
                     subscription_url=vpn_data["subscription_url"],
-                    expires_at=expires_at
+                    days=30
                 )
         
         text = (
