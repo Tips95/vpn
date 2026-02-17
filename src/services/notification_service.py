@@ -85,13 +85,13 @@ class NotificationService:
 
 <b>📱 Как подключиться:</b>
 1. Скачайте приложение:
-   • iOS: <a href="https://apps.apple.com/app/v2box/id6446814690">V2Box</a>
-   • Android: <a href="https://play.google.com/store/apps/details?id=com.v2ray.ang">v2rayNG</a>
+   • iOS: <a href="https://apps.apple.com/app/v2box/id6446814690">V2Box</a>, <a href="https://apps.apple.com/app/happ-plus/id6738878751">Happ Plus</a>
+   • Android: <a href="https://play.google.com/store/apps/details?id=com.v2ray.ang">v2rayNG</a>, <a href="https://play.google.com/store/apps/details?id=one.happ.plus">Happ Plus</a>
 
 2. Скопируйте ключ выше
 3. Откройте приложение → Добавить конфигурацию → Вставить из буфера
 
-❓ Возникли вопросы? Пишите @support
+❓ Возникли вопросы? Пишите @tipss94
 """
         
         return await self.send_message(chat_id, message)

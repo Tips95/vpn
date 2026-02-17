@@ -137,13 +137,15 @@ async def process_trial_request(callback: CallbackQuery):
 
 <b>📱 Как подключиться:</b>
 1. Скачайте приложение:
-   • iOS: <a href="https://apps.apple.com/app/v2box/id6446814690">V2Box</a>
-   • Android: <a href="https://play.google.com/store/apps/details?id=com.v2ray.ang">v2rayNG</a>
+   • iOS: <a href="https://apps.apple.com/app/v2box/id6446814690">V2Box</a>, <a href="https://apps.apple.com/app/happ-plus/id6738878751">Happ Plus</a>
+   • Android: <a href="https://play.google.com/store/apps/details?id=com.v2ray.ang">v2rayNG</a>, <a href="https://play.google.com/store/apps/details?id=one.happ.plus">Happ Plus</a>
 
 2. Скопируйте ключ выше (нажмите на него)
 3. Откройте приложение → Добавить конфигурацию → Вставить из буфера
 
 После окончания пробного периода вы сможете выбрать платный тариф.
+
+❓ Возникли вопросы? Пишите @tipss94
 """
         
         await callback.message.edit_text(trial_text)
@@ -281,12 +283,12 @@ async def cmd_help(message: Message):
 <b>Как подключиться:</b>
 1. Получите VPN-ключ (при первом запуске автоматически)
 2. Скачайте приложение:
-   • iOS: V2Box
-   • Android: v2rayNG
+   • iOS: V2Box, Happ Plus
+   • Android: v2rayNG, Happ Plus
 3. Добавьте конфигурацию из ключа
 
 <b>Поддержка:</b>
-По всем вопросам: @support
+По всем вопросам: @tipss94
 """
     
     await message.answer(help_text)
@@ -433,9 +435,10 @@ async def admin_test_vpn(callback: CallbackQuery):
             f"<code>{vpn_data['subscription_url']}</code>\n\n"
             "📱 <b>Как подключиться:</b>\n"
             "1. Скопируйте ссылку выше\n"
-            "2. Откройте V2rayNG/V2Box/Shadowrocket\n"
+            "2. Откройте V2rayNG/V2Box/Happ Plus\n"
             "3. Нажмите '+' → 'Import from clipboard'\n"
-            "4. Подключитесь к серверу!"
+            "4. Подключитесь к серверу!\n\n"
+            "❓ Вопросы? Пишите @tipss94"
         )
         await callback.message.answer(text, parse_mode="HTML")
         await callback.message.edit_text(
