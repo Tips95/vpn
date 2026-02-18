@@ -107,6 +107,9 @@ class HiddifyService:
                 client_uuid = str(uuid.uuid4())
                 user_email = f"user_{int(time.time())}@vpn.local"
                 
+                # Красивое название для отображения в приложении
+                display_name = "🇳🇱 AI VPN | Netherlands"
+                
                 # Вычисляем дату истечения (timestamp в миллисекундах)
                 expire_time = int((time.time() + (expire_days * 86400)) * 1000)
                 
@@ -226,8 +229,8 @@ class HiddifyService:
                         query_parts = [f"{k}={quote(str(v))}" for k, v in params.items() if v]
                         query_string = "&".join(query_parts)
                         
-                        # Формируем VLESS-ссылку
-                        vless_link = f"vless://{client_uuid}@{self.server_host}:{port}?{query_string}#{quote(user_email)}"
+                        # Формируем VLESS-ссылку с красивым названием
+                        vless_link = f"vless://{client_uuid}@{self.server_host}:{port}?{query_string}#{quote(display_name)}"
                         
                         logger.info(f"VPN пользователь создан: {user_email} (UUID: {client_uuid})")
                         logger.info(f"Security: {security}, Network: {network}")
