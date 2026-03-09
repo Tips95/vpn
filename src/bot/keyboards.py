@@ -3,8 +3,8 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 
-def get_tariffs_keyboard(show_trial: bool = False, show_antiblock: bool = False) -> InlineKeyboardMarkup:
-    """Клавиатура с тарифами"""
+def get_tariffs_keyboard(show_trial: bool = False) -> InlineKeyboardMarkup:
+    """Клавиатура выбора режима VPN"""
     builder = InlineKeyboardBuilder()
     
     # Кнопка пробного периода (если доступна)
@@ -16,58 +16,17 @@ def get_tariffs_keyboard(show_trial: bool = False, show_antiblock: bool = False)
             )
         )
     
-    # Кнопка обхода глушилок (если есть активная подписка)
-    if show_antiblock:
-        builder.row(
-            InlineKeyboardButton(
-                text="🛡️ Получить ключ с обходом глушилок",
-                callback_data="get_antiblock_key"
-            )
-        )
-    
+    # Выбор режима VPN
     builder.row(
         InlineKeyboardButton(
-            text="⚡️ 1 месяц - 299₽",
-            callback_data="tariff:1m"
+            text="⚡️ Обычный VPN",
+            callback_data="select_mode:normal"
         )
     )
     builder.row(
         InlineKeyboardButton(
-            text="⚡️ 3 месяца - 799₽",
-            callback_data="tariff:3m"
-        )
-    )
-    builder.row(
-        InlineKeyboardButton(
-            text="⚡️ 1 год - 2499₽",
-            callback_data="tariff:12m"
-        )
-    )
-    
-    # Разделитель
-    builder.row(
-        InlineKeyboardButton(
-            text="━━━━━ 🛡️ АНТИГЛУШИЛКА ━━━━━",
-            callback_data="antiblock_info"
-        )
-    )
-    
-    builder.row(
-        InlineKeyboardButton(
-            text="🛡️ 1 месяц - 499₽",
-            callback_data="tariff:antiblock_1m"
-        )
-    )
-    builder.row(
-        InlineKeyboardButton(
-            text="🛡️ 3 месяца - 1299₽",
-            callback_data="tariff:antiblock_3m"
-        )
-    )
-    builder.row(
-        InlineKeyboardButton(
-            text="🛡️ 1 год - 3999₽",
-            callback_data="tariff:antiblock_12m"
+            text="🛡️ Обход глушилок",
+            callback_data="select_mode:antiblock"
         )
     )
     
@@ -88,6 +47,79 @@ def get_tariffs_keyboard(show_trial: bool = False, show_antiblock: bool = False)
         InlineKeyboardButton(
             text="💬 Поддержка",
             url="https://t.me/tipss94"
+        )
+    )
+    
+    return builder.as_markup()
+
+
+def get_normal_tariffs_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура с обычными тарифами"""
+    builder = InlineKeyboardBuilder()
+    
+    builder.row(
+        InlineKeyboardButton(
+            text="⚡️ 1 месяц - 299₽",
+            callback_data="tariff:1m"
+        )
+    )
+    builder.row(
+        InlineKeyboardButton(
+            text="⚡️ 3 месяца - 799₽",
+            callback_data="tariff:3m"
+        )
+    )
+    builder.row(
+        InlineKeyboardButton(
+            text="⚡️ 1 год - 2499₽",
+            callback_data="tariff:12m"
+        )
+    )
+    
+    builder.row(
+        InlineKeyboardButton(
+            text="◀️ Назад",
+            callback_data="back_to_tariffs"
+        )
+    )
+    
+    return builder.as_markup()
+
+
+def get_antiblock_tariffs_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура с антиглушилка тарифами"""
+    builder = InlineKeyboardBuilder()
+    
+    builder.row(
+        InlineKeyboardButton(
+            text="🛡️ 1 месяц - 499₽",
+            callback_data="tariff:antiblock_1m"
+        )
+    )
+    builder.row(
+        InlineKeyboardButton(
+            text="🛡️ 3 месяца - 1299₽",
+            callback_data="tariff:antiblock_3m"
+        )
+    )
+    builder.row(
+        InlineKeyboardButton(
+            text="🛡️ 1 год - 3999₽",
+            callback_data="tariff:antiblock_12m"
+        )
+    )
+    
+    builder.row(
+        InlineKeyboardButton(
+            text="ℹ️ Что такое обход глушилок?",
+            callback_data="antiblock_info"
+        )
+    )
+    
+    builder.row(
+        InlineKeyboardButton(
+            text="◀️ Назад",
+            callback_data="back_to_tariffs"
         )
     )
     

@@ -12,7 +12,14 @@ from src.database.models import Database
 from src.services.payment_service import PaymentService
 from src.services.hiddify_service import HiddifyService
 from src.services.notification_service import NotificationService
-from src.bot.keyboards import get_tariffs_keyboard, get_payment_keyboard, get_back_keyboard, get_admin_keyboard
+from src.bot.keyboards import (
+    get_tariffs_keyboard, 
+    get_payment_keyboard, 
+    get_back_keyboard, 
+    get_admin_keyboard,
+    get_normal_tariffs_keyboard,
+    get_antiblock_tariffs_keyboard
+)
 
 logger = logging.getLogger(__name__)
 
@@ -103,11 +110,8 @@ async def cmd_start(message: Message):
         has_trial = await db.has_used_trial(user.id)
         has_subs = await db.has_any_subscription(user.id)
         show_trial = not has_trial and not has_subs
-    
-    # Показать кнопку "обход глушилок" если есть активная подписка
-    show_antiblock = subscription is not None and (expires_at - datetime.now()).days > 0 if subscription else False
 
-    await message.answer(welcome_text, reply_markup=get_tariffs_keyboard(show_trial=show_trial, show_antiblock=show_antiblock))
+    await message.answer(welcome_text, reply_markup=get_tariffs_keyboard(show_trial=show_trial))
 
 
 @router.callback_query(F.data == "get_trial")
@@ -379,10 +383,58 @@ async def back_to_tariffs(callback: CallbackQuery):
         has_subs = await db.has_any_subscription(callback.from_user.id)
         show_trial = not has_trial and not has_subs
     
-    # Показать кнопку "обход глушилок" если есть активная подписка
-    show_antiblock = subscription is not None and (expires_at - datetime.now()).days > 0 if subscription else False
+    await callback.message.edit_text(text, reply_markup=get_tariffs_keyboard(show_trial=show_trial))
+    await callback.answer()
+
+
+@router.callback_query(F.data.startswith("select_mode:"))
+async def select_mode(callback: CallbackQuery):
+    """Выбор режима VPN"""
+    mode = callback.data.split(":")[1]
     
-    await callback.message.edit_text(text, reply_markup=get_tariffs_keyboard(show_trial=show_trial, show_antiblock=show_antiblock))
+    if mode == "normal":
+        text = """
+⚡️ <b>Обычный VPN</b>
+
+<b>Характеристики:</b>
+✅ Максимальная скорость
+✅ Низкий пинг
+✅ Протокол Reality
+✅ Доступная цена
+
+<b>Подходит для:</b>
+• Повседневное использование
+• Просмотр видео и стриминг
+• Работа и учёба
+• Соцсети и мессенджеры
+
+<b>Выберите тариф:</b>
+"""
+        await callback.message.edit_text(text, reply_markup=get_normal_tariffs_keyboard())
+    
+    elif mode == "antiblock":
+        text = """
+🛡️ <b>Обход глушилок (Премиум)</b>
+
+<b>Характеристики:</b>
+✅ Работает при блокировках DPI
+✅ Стабильное соединение 24/7
+✅ WebSocket + TLS + Fragment
+✅ WhatsApp, Telegram, Instagram всегда работают
+
+<b>Подходит для:</b>
+• Регионы с жёсткими блокировками
+• Когда обычный VPN не работает
+• Максимальная стабильность
+• Критически важные подключения
+
+<b>💡 Разница с обычным VPN:</b>
+Антиглушилка использует специальные протоколы маскировки трафика, которые позволяют обходить даже самые современные DPI-системы провайдеров.
+
+<b>Выберите тариф:</b>
+"""
+        await callback.message.edit_text(text, reply_markup=get_antiblock_tariffs_keyboard())
+    
     await callback.answer()
 
 
@@ -418,7 +470,7 @@ async def antiblock_info(callback: CallbackQuery):
 1 год - 3999₽
 """
     
-    await callback.message.edit_text(info_text, reply_markup=get_back_keyboard())
+    await callback.message.edit_text(info_text, reply_markup=get_antiblock_tariffs_keyboard())
     await callback.answer()
 
 
@@ -699,14 +751,7 @@ async def echo_handler(message: Message):
         has_subs = await db.has_any_subscription(message.from_user.id)
         show_trial = not has_trial and not has_subs
     
-    # Показать кнопку "обход глушилок" если есть активная подписка
-    if subscription:
-        expires_at = datetime.fromisoformat(subscription["expires_at"])
-        show_antiblock = (expires_at - datetime.now()).days > 0
-    else:
-        show_antiblock = False
-    
     await message.answer(
         text,
-        reply_markup=get_tariffs_keyboard(show_trial=show_trial, show_antiblock=show_antiblock)
+        reply_markup=get_tariffs_keyboard(show_trial=show_trial)
     )
