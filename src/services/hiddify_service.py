@@ -101,16 +101,38 @@ class HiddifyService:
                     return None
                 
                 # Выбираем inbound в зависимости от режима
-                if use_antiblock and len(inbounds_data["obj"]) > 1:
-                    # Режим обхода глушилок - используем второй inbound (ID=2)
-                    inbound = inbounds_data["obj"][1]
-                    inbound_id = inbound["id"]
-                    logger.info(f"Используем ANTIBLOCK inbound ID: {inbound_id}")
+                inbound = None
+                if use_antiblock:
+                    # Режим обхода глушилок - ищем inbound с названием "VPN-AntiBlock"
+                    for ib in inbounds_data["obj"]:
+                        if "antiblock" in ib.get("remark", "").lower():
+                            inbound = ib
+                            logger.info(f"Используем ANTIBLOCK inbound ID: {ib['id']} (remark: {ib['remark']})")
+                            break
+                    
+                    if not inbound:
+                        logger.error("Inbound для антиглушилки не найден! Создайте inbound 'VPN-AntiBlock' в панели.")
+                        return None
                 else:
-                    # Обычный режим - используем первый inbound (ID=1)
-                    inbound = inbounds_data["obj"][0]
-                    inbound_id = inbound["id"]
-                    logger.info(f"Используем FAST inbound ID: {inbound_id}")
+                    # Обычный режим - ищем первый inbound с Reality или берём первый
+                    for ib in inbounds_data["obj"]:
+                        remark = ib.get("remark", "").lower()
+                        if "bot" in remark or "vpn" in remark:
+                            # Проверяем, что это Reality inbound
+                            stream_settings = ib.get("streamSettings", "{}")
+                            if isinstance(stream_settings, str):
+                                stream_settings = json.loads(stream_settings)
+                            if stream_settings.get("security") == "reality":
+                                inbound = ib
+                                logger.info(f"Используем FAST inbound ID: {ib['id']} (remark: {ib['remark']})")
+                                break
+                    
+                    # Если не нашли Reality, берём первый доступный
+                    if not inbound:
+                        inbound = inbounds_data["obj"][0]
+                        logger.info(f"Используем первый доступный inbound ID: {inbound['id']}")
+                
+                inbound_id = inbound["id"]
                 
                 # Генерируем UUID и email для клиента
                 client_uuid = str(uuid.uuid4())
