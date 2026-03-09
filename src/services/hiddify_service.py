@@ -103,34 +103,55 @@ class HiddifyService:
                 # Выбираем inbound в зависимости от режима
                 inbound = None
                 if use_antiblock:
-                    # Режим обхода глушилок - ищем inbound с названием "VPN-AntiBlock"
+                    # Режим обхода глушилок - ищем Reality inbound с "antiblock" в названии
+                    # Приоритет: Reality на порту 441 или 443
+                    antiblock_candidates = []
                     for ib in inbounds_data["obj"]:
                         if "antiblock" in ib.get("remark", "").lower():
-                            inbound = ib
-                            logger.info(f"Используем ANTIBLOCK inbound ID: {ib['id']} (remark: {ib['remark']})")
-                            break
-                    
-                    if not inbound:
-                        logger.error("Inbound для антиглушилки не найден! Создайте inbound 'VPN-AntiBlock' в панели.")
-                        return None
-                else:
-                    # Обычный режим - ищем первый inbound с Reality или берём первый
-                    for ib in inbounds_data["obj"]:
-                        remark = ib.get("remark", "").lower()
-                        if "bot" in remark or "vpn" in remark:
-                            # Проверяем, что это Reality inbound
                             stream_settings = ib.get("streamSettings", "{}")
                             if isinstance(stream_settings, str):
                                 stream_settings = json.loads(stream_settings)
+                            
+                            # Проверяем, что это Reality (не WebSocket!)
+                            if stream_settings.get("security") == "reality":
+                                antiblock_candidates.append(ib)
+                    
+                    # Выбираем Reality inbound с наивысшим приоритетом (порт 441 или 443)
+                    if antiblock_candidates:
+                        # Сортируем: сначала порт 441, потом 443, потом остальные
+                        antiblock_candidates.sort(key=lambda x: (
+                            0 if x.get("port") == 441 else (1 if x.get("port") == 443 else 2)
+                        ))
+                        inbound = antiblock_candidates[0]
+                        logger.info(f"✅ ANTIBLOCK Reality inbound: ID={inbound['id']}, Port={inbound['port']}, Remark={inbound['remark']}")
+                    else:
+                        logger.error("❌ Reality inbound для антиглушилки не найден! Создайте 'VPN-AntiBlock-Reality' с security=reality.")
+                        return None
+                else:
+                    # Обычный режим - ищем Reality inbound с "bot" или "vpn" в названии
+                    for ib in inbounds_data["obj"]:
+                        remark = ib.get("remark", "").lower()
+                        # Исключаем antiblock inbound'ы
+                        if "antiblock" in remark:
+                            continue
+                        
+                        if "bot" in remark or "vpn" in remark:
+                            stream_settings = ib.get("streamSettings", "{}")
+                            if isinstance(stream_settings, str):
+                                stream_settings = json.loads(stream_settings)
+                            
                             if stream_settings.get("security") == "reality":
                                 inbound = ib
-                                logger.info(f"Используем FAST inbound ID: {ib['id']} (remark: {ib['remark']})")
+                                logger.info(f"✅ NORMAL Reality inbound: ID={ib['id']}, Port={ib['port']}, Remark={ib['remark']}")
                                 break
                     
-                    # Если не нашли Reality, берём первый доступный
+                    # Если не нашли Reality, берём первый доступный (кроме antiblock)
                     if not inbound:
-                        inbound = inbounds_data["obj"][0]
-                        logger.info(f"Используем первый доступный inbound ID: {inbound['id']}")
+                        for ib in inbounds_data["obj"]:
+                            if "antiblock" not in ib.get("remark", "").lower():
+                                inbound = ib
+                                logger.info(f"⚠️ Используем первый доступный inbound: ID={inbound['id']}")
+                                break
                 
                 inbound_id = inbound["id"]
                 

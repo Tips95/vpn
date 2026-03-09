@@ -2,6 +2,7 @@
 import logging
 import aiosqlite
 from datetime import datetime, timedelta
+from functools import lru_cache
 from aiogram import Router, F
 from aiogram.filters import Command
 from aiogram.types import Message, CallbackQuery
@@ -33,6 +34,12 @@ hiddify_service = HiddifyService(
     settings.vpn_data_limit_gb
 )
 notification_service = NotificationService(settings.telegram_bot_token)
+
+# Кэшируем информацию о тарифах для ускорения работы
+@lru_cache(maxsize=1)
+def get_cached_tariff_info():
+    """Возвращает кэшированную информацию о тарифах"""
+    return settings.get_tariff_info()
 
 
 @router.message(Command("start"))
@@ -66,7 +73,7 @@ async def cmd_start(message: Message):
         if subscription["tariff"] == "trial":
             tariff_name = f"🎁 Пробный период"
         else:
-            tariff_info = settings.get_tariff_info(subscription["tariff"])
+            tariff_info = get_cached_tariff_info().get(subscription["tariff"])
             tariff_name = tariff_info["name"] if tariff_info else subscription["tariff"]
         
         if days_left > 0:
@@ -214,7 +221,7 @@ async def process_trial_request(callback: CallbackQuery):
 async def process_tariff_selection(callback: CallbackQuery):
     """Обработчик выбора тарифа"""
     tariff_id = callback.data.split(":")[1]
-    tariff_info = settings.get_tariff_info(tariff_id)
+    tariff_info = get_cached_tariff_info().get(tariff_id)
     
     if not tariff_info:
         await callback.answer("❌ Тариф не найден")
@@ -277,7 +284,7 @@ async def show_subscription(callback: CallbackQuery):
         if subscription["tariff"] == "trial":
             tariff_name = f"🎁 Пробный период"
         else:
-            tariff_info = settings.get_tariff_info(subscription["tariff"])
+            tariff_info = get_cached_tariff_info().get(subscription["tariff"])
             tariff_name = tariff_info["name"] if tariff_info else subscription["tariff"]
         
         # Статус подписки
@@ -338,7 +345,7 @@ async def back_to_tariffs(callback: CallbackQuery):
         if subscription["tariff"] == "trial":
             tariff_name = f"🎁 Пробный период"
         else:
-            tariff_info = settings.get_tariff_info(subscription["tariff"])
+            tariff_info = get_cached_tariff_info().get(subscription["tariff"])
             tariff_name = tariff_info["name"] if tariff_info else subscription["tariff"]
         
         if days_left > 0:
@@ -716,7 +723,7 @@ async def admin_test_antiblock(callback: CallbackQuery):
 
         text = (
             "✅ <b>Тестовый VPN создан!</b>\n\n"
-            "🛡️ <b>Режим:</b> Обход глушилок (WS+TLS)\n"
+            "🛡️ <b>Режим:</b> Обход глушилок (Reality)\n"
             "📅 <b>Срок:</b> 30 дней\n"
             "💾 <b>Трафик:</b> 100 GB\n\n"
             "🔗 <b>Ваш VPN-ключ:</b>\n"
@@ -726,7 +733,7 @@ async def admin_test_antiblock(callback: CallbackQuery):
             "2. Откройте V2rayNG/V2Box/Happ Plus\n"
             "3. Нажмите '+' → 'Import from clipboard'\n"
             "4. Подключитесь к серверу!\n\n"
-            "💡 <b>Этот ключ работает даже при блокировках!</b>\n\n"
+            "🔥 <b>Обходит DPI-глушилки! Работает с WhatsApp, Instagram, Telegram даже при блокировках!</b>\n\n"
             "❓ Вопросы? Пишите @tipss94"
         )
         await callback.message.answer(text, parse_mode="HTML")
@@ -768,7 +775,7 @@ async def echo_handler(message: Message):
         if subscription["tariff"] == "trial":
             tariff_name = f"🎁 Пробный период"
         else:
-            tariff_info = settings.get_tariff_info(subscription["tariff"])
+            tariff_info = get_cached_tariff_info().get(subscription["tariff"])
             tariff_name = tariff_info["name"] if tariff_info else subscription["tariff"]
         
         if days_left > 0:
