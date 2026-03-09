@@ -261,7 +261,15 @@ class HiddifyService:
                         if network == "ws":
                             ws_settings = stream_settings.get("wsSettings", {})
                             ws_path = ws_settings.get("path", "/")
-                            ws_host = ws_settings.get("headers", {}).get("Host", "")
+                            
+                            # Host может быть в разных местах
+                            ws_host = ""
+                            if "headers" in ws_settings and isinstance(ws_settings["headers"], dict):
+                                ws_host = ws_settings["headers"].get("Host", "")
+                            
+                            # Если host не найден, берём из SNI
+                            if not ws_host and "sni" in params:
+                                ws_host = params["sni"]
                             
                             if ws_path:
                                 params["path"] = ws_path
@@ -269,6 +277,10 @@ class HiddifyService:
                                 params["host"] = ws_host
                             
                             logger.info(f"WebSocket settings: path={ws_path}, host={ws_host}")
+                        
+                        # Для TLS с самоподписанным сертификатом добавляем allowInsecure
+                        if security == "tls":
+                            params["allowInsecure"] = "1"
                         
                         # Формируем query string
                         query_parts = [f"{k}={quote(str(v))}" for k, v in params.items() if v]
