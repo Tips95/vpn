@@ -1,12 +1,14 @@
 """Обработчики команд Telegram-бота"""
 import logging
+import asyncio
 import aiosqlite
 from datetime import datetime, timedelta
 from functools import lru_cache
 from aiogram import Router, F
 from aiogram.filters import Command
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, InlineKeyboardButton
 from aiogram.fsm.context import FSMContext
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 from src.config.settings import settings
 from src.database.models import Database
@@ -19,7 +21,8 @@ from src.bot.keyboards import (
     get_back_keyboard, 
     get_admin_keyboard,
     get_normal_tariffs_keyboard,
-    get_antiblock_tariffs_keyboard
+    get_antiblock_tariffs_keyboard,
+    get_upgrade_keyboard
 )
 
 logger = logging.getLogger(__name__)
@@ -820,3 +823,169 @@ async def echo_handler(message: Message):
         text,
         reply_markup=get_tariffs_keyboard(show_trial=show_trial)
     )
+
+
+@router.callback_query(F.data == "admin_broadcast")
+async def admin_broadcast(callback: CallbackQuery):
+    """Рассылка всем подписчикам"""
+    if not settings.is_admin(callback.from_user.id):
+        await callback.answer("⛔️ Доступ запрещен", show_alert=True)
+        return
+    
+    await callback.answer()
+    
+    # Получить количество пользователей
+    async with aiosqlite.connect(db.db_path) as conn:
+        cursor = await conn.execute("SELECT COUNT(*) FROM users")
+        user_count = (await cursor.fetchone())[0]
+    
+    text = (
+        "📢 <b>Рассылка уведомлений</b>\n\n"
+        f"👥 Всего пользователей: <b>{user_count}</b>\n\n"
+        "🚀 <b>Готовое сообщение о новом XHTTP протоколе:</b>\n\n"
+        "━━━━━━━━━━━━━━━━\n"
+        "🎉 <b>Обновление VPN!</b>\n\n"
+        "Мы добавили <b>новый протокол XHTTP</b> для еще более быстрого подключения!\n\n"
+        "⚡️ <b>Преимущества:</b>\n"
+        "• Пинг ниже на 20-30%\n"
+        "• Быстрее подключение\n"
+        "• Стабильнее работа\n"
+        "• Лучший обход блокировок\n\n"
+        "Нажмите /start чтобы обновить свой ключ!\n"
+        "━━━━━━━━━━━━━━━━\n\n"
+        "❓ Отправить это сообщение всем?"
+    )
+    
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(
+            text="✅ Да, отправить",
+            callback_data="admin_broadcast_confirm"
+        )
+    )
+    builder.row(
+        InlineKeyboardButton(
+            text="❌ Отмена",
+            callback_data="admin"
+        )
+    )
+    
+    await callback.message.edit_text(
+        text,
+        reply_markup=builder.as_markup()
+    )
+
+
+@router.callback_query(F.data == "admin_broadcast_confirm")
+async def admin_broadcast_confirm(callback: CallbackQuery):
+    """Подтверждение и отправка рассылки"""
+    if not settings.is_admin(callback.from_user.id):
+        await callback.answer("⛔️ Доступ запрещен", show_alert=True)
+        return
+    
+    await callback.answer("📤 Начинаю рассылку...", show_alert=True)
+    
+    # Получить всех пользователей
+    async with aiosqlite.connect(db.db_path) as conn:
+        cursor = await conn.execute("SELECT telegram_id FROM users")
+        users = await cursor.fetchall()
+    
+    # Текст рассылки
+    broadcast_text = (
+        "🎉 <b>Обновление VPN!</b>\n\n"
+        "Мы добавили <b>новый протокол XHTTP</b> для еще более быстрого подключения!\n\n"
+        "⚡️ <b>Преимущества:</b>\n"
+        "• Пинг ниже на 20-30%\n"
+        "• Быстрее подключение\n"
+        "• Стабильнее работа\n"
+        "• Лучший обход блокировок\n\n"
+        "📲 Нажмите /start чтобы увидеть новые возможности!"
+    )
+    
+    # Отправка
+    success_count = 0
+    failed_count = 0
+    
+    for (user_id,) in users:
+        try:
+            await notification_service.bot.send_message(
+                chat_id=user_id,
+                text=broadcast_text,
+                reply_markup=get_upgrade_keyboard()
+            )
+            success_count += 1
+            await asyncio.sleep(0.05)  # Задержка чтобы не попасть в rate limit
+        except Exception as e:
+            failed_count += 1
+            logger.error(f"Ошибка отправки пользователю {user_id}: {e}")
+    
+    # Отчет админу
+    result_text = (
+        f"✅ <b>Рассылка завершена!</b>\n\n"
+        f"📤 Отправлено: {success_count}\n"
+        f"❌ Ошибок: {failed_count}\n"
+        f"👥 Всего: {len(users)}"
+    )
+    
+    await callback.message.edit_text(
+        result_text,
+        reply_markup=get_admin_keyboard()
+    )
+
+
+@router.callback_query(F.data == "upgrade_to_xhttp")
+async def upgrade_to_xhttp(callback: CallbackQuery):
+    """Обновление ключа пользователя на XHTTP"""
+    await callback.answer("⏳ Создаю новый ключ...", show_alert=False)
+    
+    user = callback.from_user
+    
+    # Получить активную подписку
+    subscription = await db.get_active_subscription(user.id)
+    
+    if not subscription:
+        await callback.message.edit_text(
+            "❌ У вас нет активной подписки.\n\n"
+            "Выберите тариф для подключения:",
+            reply_markup=get_tariffs_keyboard(show_trial=False)
+        )
+        return
+    
+    # Создать новый ключ (старый автоматически станет неактивным при превышении лимитов)
+    vpn_data = await hiddify_service.create_user(
+        expire_days=(subscription["expires_at"] - datetime.now()).days,
+        use_antiblock=False  # Обычный VPN на XHTTP
+    )
+    
+    if vpn_data:
+        # Обновить подписку в БД
+        async with aiosqlite.connect(db.db_path) as conn:
+            await conn.execute(
+                "UPDATE subscriptions SET hiddify_uuid = ?, subscription_url = ? WHERE id = ?",
+                (vpn_data["uuid"], vpn_data["subscription_url"], subscription["id"])
+            )
+            await conn.commit()
+        
+        text = (
+            "🎉 <b>Ваш VPN обновлен!</b>\n\n"
+            "🚀 Новый ключ с протоколом <b>XHTTP</b> готов!\n\n"
+            "🔗 <b>Ваш новый VPN-ключ:</b>\n"
+            f"<code>{vpn_data['subscription_url']}</code>\n\n"
+            "📱 <b>Как подключиться:</b>\n"
+            "1. Скопируйте ссылку выше\n"
+            "2. Откройте V2rayNG/V2Box/Happ Plus\n"
+            "3. Нажмите '+' → 'Import from clipboard'\n"
+            "4. Подключитесь к серверу!\n\n"
+            "⚡️ Теперь ваше подключение еще быстрее!\n\n"
+            "❓ Вопросы? Пишите @tipss94"
+        )
+        
+        await callback.message.edit_text(
+            text,
+            reply_markup=get_back_keyboard()
+        )
+    else:
+        await callback.message.edit_text(
+            "❌ Ошибка создания нового ключа. Попробуйте позже.",
+            reply_markup=get_back_keyboard()
+        )

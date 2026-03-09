@@ -160,6 +160,26 @@ def get_back_keyboard() -> InlineKeyboardMarkup:
     return builder.as_markup()
 
 
+def get_upgrade_keyboard() -> InlineKeyboardMarkup:
+    """Клавиатура для обновления ключа"""
+    builder = InlineKeyboardBuilder()
+    
+    builder.row(
+        InlineKeyboardButton(
+            text="🚀 Обновить до быстрого VPN",
+            callback_data="upgrade_to_xhttp"
+        )
+    )
+    builder.row(
+        InlineKeyboardButton(
+            text="❌ Оставить текущий",
+            callback_data="back_to_tariffs"
+        )
+    )
+    
+    return builder.as_markup()
+
+
 def get_admin_keyboard() -> InlineKeyboardMarkup:
     """Клавиатура администратора"""
     builder = InlineKeyboardBuilder()
@@ -180,6 +200,14 @@ def get_admin_keyboard() -> InlineKeyboardMarkup:
         InlineKeyboardButton(
             text="📝 Активные подписки",
             callback_data="admin_subscriptions"
+        )
+    )
+    
+    # Рассылка
+    builder.row(
+        InlineKeyboardButton(
+            text="📢 Рассылка всем",
+            callback_data="admin_broadcast"
         )
     )
     
