@@ -257,6 +257,19 @@ class HiddifyService:
                         else:
                             params["security"] = "none"
                         
+                        # Добавляем параметры WebSocket (если используется)
+                        if network == "ws":
+                            ws_settings = stream_settings.get("wsSettings", {})
+                            ws_path = ws_settings.get("path", "/")
+                            ws_host = ws_settings.get("headers", {}).get("Host", "")
+                            
+                            if ws_path:
+                                params["path"] = ws_path
+                            if ws_host:
+                                params["host"] = ws_host
+                            
+                            logger.info(f"WebSocket settings: path={ws_path}, host={ws_host}")
+                        
                         # Формируем query string
                         query_parts = [f"{k}={quote(str(v))}" for k, v in params.items() if v]
                         query_string = "&".join(query_parts)
