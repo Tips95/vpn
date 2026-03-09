@@ -933,9 +933,10 @@ async def admin_broadcast_confirm(callback: CallbackQuery):
     
     for (user_id,) in users:
         try:
-            await notification_service.bot.send_message(
+            await callback.bot.send_message(
                 chat_id=user_id,
                 text=broadcast_text,
+                parse_mode="HTML",
                 reply_markup=get_upgrade_keyboard()
             )
             success_count += 1
