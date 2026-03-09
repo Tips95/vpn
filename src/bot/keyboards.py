@@ -34,10 +34,24 @@ def get_tariffs_keyboard(show_trial: bool = False) -> InlineKeyboardMarkup:
             callback_data="tariff:12m"
         )
     )
+    
+    # Разделитель
     builder.row(
         InlineKeyboardButton(
-            text="ℹ️ Моя подписка",
+            text="📦 Моя подписка",
             callback_data="my_subscription"
+        )
+    )
+    
+    # Кнопки внизу (две в ряд)
+    builder.row(
+        InlineKeyboardButton(
+            text="👥 Пригласить друга",
+            callback_data="invite_friend"
+        ),
+        InlineKeyboardButton(
+            text="💬 Поддержка",
+            url="https://t.me/tipss94"
         )
     )
     

@@ -36,28 +36,73 @@ async def cmd_start(message: Message):
     # Создать пользователя в БД (если новый)
     await db.create_user(user.id, user.username)
     
-    # Проверить доступность пробного периода
+    # Получить информацию о подписке
+    subscription = await db.get_active_subscription(user.id)
+    
+    # Формируем имя пользователя
+    user_name = user.first_name or user.username or "Пользователь"
+    
+    # Формируем блок профиля
+    profile_text = f"""
+🛡️ <b>Добро пожаловать в AI VPN!</b>
+
+👤 <b>Профиль:</b>
+• ID: <code>{user.id}</code>
+• Имя: {user_name}
+"""
+    
+    # Формируем блок подписки
+    if subscription:
+        expires_at = datetime.fromisoformat(subscription["expires_at"])
+        days_left = (expires_at - datetime.now()).days
+        
+        if subscription["tariff"] == "trial":
+            tariff_name = f"🎁 Пробный период"
+        else:
+            tariff_info = settings.get_tariff_info(subscription["tariff"])
+            tariff_name = tariff_info["name"] if tariff_info else subscription["tariff"]
+        
+        if days_left > 0:
+            subscription_text = f"""
+📦 <b>Подписка:</b>
+• Тариф: {tariff_name}
+• Срок действия до: {expires_at.strftime("%d.%m.%Y")}
+• Осталось дней: <b>{days_left}</b>
+"""
+        else:
+            subscription_text = f"""
+⚠️ <b>Подписка:</b>
+• Срок действия истек: {expires_at.strftime("%d.%m.%Y")}
+
+<i>Ваш бесплатный пробный период закончился. Оформите подписку, чтобы продолжить пользоваться сервисом!</i>
+"""
+    else:
+        # Проверить доступность пробного периода
+        has_trial = await db.has_used_trial(user.id)
+        
+        if not has_trial and settings.trial_enabled:
+            subscription_text = f"""
+🎁 <b>Пробная подписка:</b>
+• Доступно <b>{settings.trial_period_days} дней бесплатно!</b>
+
+<i>Попробуйте наш VPN бесплатно без привязки карты.</i>
+"""
+        else:
+            subscription_text = """
+📭 <b>Подписка:</b>
+• Срок действия истек.
+
+<i>Выберите тариф для продолжения использования.</i>
+"""
+    
+    welcome_text = profile_text + subscription_text
+    
+    # Проверить доступность пробного периода для кнопки
     show_trial = False
     if settings.trial_enabled:
         has_trial = await db.has_used_trial(user.id)
         has_subs = await db.has_any_subscription(user.id)
-        # Показать кнопку только если не использовал пробный период
         show_trial = not has_trial and not has_subs
-    
-    welcome_text = f"""
-👋 <b>Добро пожаловать в VPN-сервис!</b>
-
-Быстрый и стабильный VPN для обхода блокировок.
-
-<b>Преимущества:</b>
-✅ Безлимитный трафик
-✅ Высокая скорость
-✅ Работает на всех устройствах
-✅ Без логов и слежки
-✅ Техподдержка 24/7
-
-<b>Выберите тариф:</b>
-"""
     
     await message.answer(welcome_text, reply_markup=get_tariffs_keyboard(show_trial=show_trial))
 
@@ -223,22 +268,35 @@ async def show_subscription(callback: CallbackQuery):
         
         # Определить название тарифа
         if subscription["tariff"] == "trial":
-            tariff_name = f"🎁 Пробный период ({settings.trial_period_days} дней)"
+            tariff_name = f"🎁 Пробный период"
         else:
             tariff_info = settings.get_tariff_info(subscription["tariff"])
             tariff_name = tariff_info["name"] if tariff_info else subscription["tariff"]
         
+        # Статус подписки
+        if days_left > 0:
+            status_emoji = "✅"
+            status_text = f"Активна | Осталось <b>{days_left} дн.</b>"
+        else:
+            status_emoji = "⚠️"
+            status_text = f"Истекла {expires_at.strftime('%d.%m.%Y')}"
+        
         text = f"""
-✅ <b>Ваша активная подписка</b>
+{status_emoji} <b>Ваша подписка</b>
 
 📦 <b>Тариф:</b> {tariff_name}
-📅 <b>Действует до:</b> {expires_at.strftime("%d.%m.%Y %H:%M")}
-⏳ <b>Осталось дней:</b> {days_left}
+📅 <b>Статус:</b> {status_text}
+📅 <b>Действует до:</b> {expires_at.strftime("%d.%m.%Y")}
 
-🔑 <b>Ваш ключ:</b>
+🔑 <b>Ваш VPN-ключ:</b>
 <code>{subscription["subscription_url"]}</code>
 
-<i>Скопируйте ключ и вставьте в приложение VPN</i>
+📱 <b>Как подключиться:</b>
+1. Скопируйте ключ выше (нажмите на него)
+2. Откройте V2Box, Happ Plus или v2rayNG
+3. Нажмите "+" → "Вставить из буфера"
+
+❓ Вопросы? Пишите @tipss94
 """
     
     await callback.message.edit_text(text, reply_markup=get_back_keyboard())
@@ -248,22 +306,101 @@ async def show_subscription(callback: CallbackQuery):
 @router.callback_query(F.data == "back_to_tariffs")
 async def back_to_tariffs(callback: CallbackQuery):
     """Вернуться к выбору тарифов"""
-    # Проверить доступность пробного периода
+    user = callback.from_user
+    
+    # Получить информацию о подписке
+    subscription = await db.get_active_subscription(user.id)
+    
+    # Формируем имя пользователя
+    user_name = user.first_name or user.username or "Пользователь"
+    
+    # Формируем блок профиля
+    profile_text = f"""
+🛡️ <b>Добро пожаловать в AI VPN!</b>
+
+👤 <b>Профиль:</b>
+• ID: <code>{user.id}</code>
+• Имя: {user_name}
+"""
+    
+    # Формируем блок подписки
+    if subscription:
+        expires_at = datetime.fromisoformat(subscription["expires_at"])
+        days_left = (expires_at - datetime.now()).days
+        
+        if subscription["tariff"] == "trial":
+            tariff_name = f"🎁 Пробный период"
+        else:
+            tariff_info = settings.get_tariff_info(subscription["tariff"])
+            tariff_name = tariff_info["name"] if tariff_info else subscription["tariff"]
+        
+        if days_left > 0:
+            subscription_text = f"""
+📦 <b>Подписка:</b>
+• Тариф: {tariff_name}
+• Срок действия до: {expires_at.strftime("%d.%m.%Y")}
+• Осталось дней: <b>{days_left}</b>
+"""
+        else:
+            subscription_text = f"""
+⚠️ <b>Подписка:</b>
+• Срок действия истек: {expires_at.strftime("%d.%m.%Y")}
+
+<i>Ваш бесплатный пробный период закончился. Оформите подписку, чтобы продолжить пользоваться сервисом!</i>
+"""
+    else:
+        # Проверить доступность пробного периода
+        has_trial = await db.has_used_trial(user.id)
+        
+        if not has_trial and settings.trial_enabled:
+            subscription_text = f"""
+🎁 <b>Пробная подписка:</b>
+• Доступно <b>{settings.trial_period_days} дней бесплатно!</b>
+
+<i>Попробуйте наш VPN бесплатно без привязки карты.</i>
+"""
+        else:
+            subscription_text = """
+📭 <b>Подписка:</b>
+• Срок действия истек.
+
+<i>Выберите тариф для продолжения использования.</i>
+"""
+    
+    text = profile_text + subscription_text
+    
+    # Проверить доступность пробного периода для кнопки
     show_trial = False
     if settings.trial_enabled:
         has_trial = await db.has_used_trial(callback.from_user.id)
         has_subs = await db.has_any_subscription(callback.from_user.id)
         show_trial = not has_trial and not has_subs
     
-    text = """
-<b>Выберите тариф:</b>
+    await callback.message.edit_text(text, reply_markup=get_tariffs_keyboard(show_trial=show_trial))
+    await callback.answer()
 
-🌟 1 месяц - для тестирования
-💎 3 месяца - экономия 15%
-👑 1 год - экономия 30%
+
+@router.callback_query(F.data == "invite_friend")
+async def invite_friend(callback: CallbackQuery):
+    """Пригласить друга"""
+    bot_username = (await callback.bot.get_me()).username
+    invite_link = f"https://t.me/{bot_username}?start=ref_{callback.from_user.id}"
+    
+    invite_text = f"""
+👥 <b>Пригласите друзей!</b>
+
+Поделитесь ссылкой с друзьями:
+<code>{invite_link}</code>
+
+<b>Что получит друг:</b>
+🎁 {settings.trial_period_days} дней бесплатного VPN
+⚡️ Высокая скорость без ограничений
+🔒 Полная конфиденциальность
+
+<i>Просто отправьте ссылку, и ваш друг сможет сразу начать пользоваться VPN!</i>
 """
     
-    await callback.message.edit_text(text, reply_markup=get_tariffs_keyboard(show_trial=show_trial))
+    await callback.message.edit_text(invite_text, reply_markup=get_back_keyboard())
     await callback.answer()
 
 
@@ -454,7 +591,66 @@ async def admin_test_vpn(callback: CallbackQuery):
 @router.message()
 async def echo_handler(message: Message):
     """Обработчик остальных сообщений"""
-    # Проверить доступность пробного периода
+    user = message.from_user
+    
+    # Получить информацию о подписке
+    subscription = await db.get_active_subscription(user.id)
+    
+    # Формируем имя пользователя
+    user_name = user.first_name or user.username or "Пользователь"
+    
+    # Формируем блок профиля
+    profile_text = f"""
+🛡️ <b>AI VPN</b>
+
+👤 <b>Профиль:</b>
+• ID: <code>{user.id}</code>
+• Имя: {user_name}
+"""
+    
+    # Формируем блок подписки
+    if subscription:
+        expires_at = datetime.fromisoformat(subscription["expires_at"])
+        days_left = (expires_at - datetime.now()).days
+        
+        if subscription["tariff"] == "trial":
+            tariff_name = f"🎁 Пробный период"
+        else:
+            tariff_info = settings.get_tariff_info(subscription["tariff"])
+            tariff_name = tariff_info["name"] if tariff_info else subscription["tariff"]
+        
+        if days_left > 0:
+            subscription_text = f"""
+📦 <b>Подписка:</b>
+• Тариф: {tariff_name}
+• Срок действия до: {expires_at.strftime("%d.%m.%Y")}
+• Осталось дней: <b>{days_left}</b>
+"""
+        else:
+            subscription_text = f"""
+⚠️ <b>Подписка:</b>
+• Срок действия истек: {expires_at.strftime("%d.%m.%Y")}
+
+<i>Выберите тариф для продолжения.</i>
+"""
+    else:
+        # Проверить доступность пробного периода
+        has_trial = await db.has_used_trial(user.id)
+        
+        if not has_trial and settings.trial_enabled:
+            subscription_text = f"""
+🎁 <b>Пробная подписка:</b>
+• Доступно <b>{settings.trial_period_days} дней бесплатно!</b>
+"""
+        else:
+            subscription_text = """
+📭 <b>Подписка:</b>
+• Срок действия истек.
+"""
+    
+    text = profile_text + subscription_text
+    
+    # Проверить доступность пробного периода для кнопки
     show_trial = False
     if settings.trial_enabled:
         has_trial = await db.has_used_trial(message.from_user.id)
@@ -462,6 +658,6 @@ async def echo_handler(message: Message):
         show_trial = not has_trial and not has_subs
     
     await message.answer(
-        "Используйте /start для выбора тарифа",
+        text,
         reply_markup=get_tariffs_keyboard(show_trial=show_trial)
     )
