@@ -104,7 +104,10 @@ async def cmd_start(message: Message):
         has_subs = await db.has_any_subscription(user.id)
         show_trial = not has_trial and not has_subs
     
-    await message.answer(welcome_text, reply_markup=get_tariffs_keyboard(show_trial=show_trial))
+    # Показать кнопку "обход глушилок" если есть активная подписка
+    show_antiblock = subscription is not None and (expires_at - datetime.now()).days > 0 if subscription else False
+
+    await message.answer(welcome_text, reply_markup=get_tariffs_keyboard(show_trial=show_trial, show_antiblock=show_antiblock))
 
 
 @router.callback_query(F.data == "get_trial")
@@ -376,7 +379,46 @@ async def back_to_tariffs(callback: CallbackQuery):
         has_subs = await db.has_any_subscription(callback.from_user.id)
         show_trial = not has_trial and not has_subs
     
-    await callback.message.edit_text(text, reply_markup=get_tariffs_keyboard(show_trial=show_trial))
+    # Показать кнопку "обход глушилок" если есть активная подписка
+    show_antiblock = subscription is not None and (expires_at - datetime.now()).days > 0 if subscription else False
+    
+    await callback.message.edit_text(text, reply_markup=get_tariffs_keyboard(show_trial=show_trial, show_antiblock=show_antiblock))
+    await callback.answer()
+
+
+@router.callback_query(F.data == "antiblock_info")
+async def antiblock_info(callback: CallbackQuery):
+    """Информация об Антиглушилке"""
+    info_text = """
+🛡️ <b>Что такое "Антиглушилка"?</b>
+
+Это специальная версия VPN с усиленной защитой от блокировок и глушения провайдерами.
+
+<b>🎯 Преимущества:</b>
+✅ Работает при активных блокировках DPI
+✅ Стабильное соединение даже при глушении
+✅ WhatsApp, Telegram, Instagram всегда онлайн
+✅ Специальные протоколы обхода (WebSocket + TLS + Fragment)
+
+<b>⚡️ Обычный VPN vs 🛡️ Антиглушилка:</b>
+
+<b>Обычный VPN:</b>
+• Быстрее
+• Дешевле
+• Работает в большинстве случаев
+
+<b>Антиглушилка:</b>
+• Максимальная стабильность
+• Работает даже при жёстких блокировках
+• Премиум-защита
+
+<b>💰 Цены:</b>
+1 месяц - 499₽
+3 месяца - 1299₽
+1 год - 3999₽
+"""
+    
+    await callback.message.edit_text(info_text, reply_markup=get_back_keyboard())
     await callback.answer()
 
 
@@ -657,7 +699,14 @@ async def echo_handler(message: Message):
         has_subs = await db.has_any_subscription(message.from_user.id)
         show_trial = not has_trial and not has_subs
     
+    # Показать кнопку "обход глушилок" если есть активная подписка
+    if subscription:
+        expires_at = datetime.fromisoformat(subscription["expires_at"])
+        show_antiblock = (expires_at - datetime.now()).days > 0
+    else:
+        show_antiblock = False
+    
     await message.answer(
         text,
-        reply_markup=get_tariffs_keyboard(show_trial=show_trial)
+        reply_markup=get_tariffs_keyboard(show_trial=show_trial, show_antiblock=show_antiblock)
     )

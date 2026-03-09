@@ -82,8 +82,12 @@ async def yookassa_webhook(
                 logger.error(f"Неизвестный тариф: {tariff_id}")
                 raise HTTPException(status_code=400, detail="Invalid tariff")
             
-            # Создать VPN-пользователя в Hiddify
-            vpn_result = await hiddify_service.create_user(tariff_info["days"])
+            # Создать VPN-пользователя в Hiddify (с антиглушилкой если нужно)
+            use_antiblock = tariff_info.get("antiblock", False)
+            vpn_result = await hiddify_service.create_user(
+                expire_days=tariff_info["days"],
+                use_antiblock=use_antiblock
+            )
             
             if not vpn_result:
                 logger.error(f"Ошибка создания VPN для платежа {payment_id}")

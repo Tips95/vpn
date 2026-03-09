@@ -34,6 +34,11 @@ class Settings(BaseSettings):
     tariff_3m_price: int = Field(default=79900, env="TARIFF_3M_PRICE")  # 799 RUB
     tariff_12m_price: int = Field(default=249900, env="TARIFF_12M_PRICE")  # 2499 RUB
     
+    # Antiblock tariffs (premium - обход глушилок)
+    tariff_antiblock_1m_price: int = Field(default=49900, env="TARIFF_ANTIBLOCK_1M_PRICE")  # 499 RUB
+    tariff_antiblock_3m_price: int = Field(default=129900, env="TARIFF_ANTIBLOCK_3M_PRICE")  # 1299 RUB
+    tariff_antiblock_12m_price: int = Field(default=399900, env="TARIFF_ANTIBLOCK_12M_PRICE")  # 3999 RUB
+    
     # VPN limits
     vpn_data_limit_gb: int = Field(default=100, env="VPN_DATA_LIMIT_GB")
     
@@ -65,19 +70,43 @@ class Settings(BaseSettings):
                 "name": "1 месяц",
                 "days": 30,
                 "price": self.tariff_1m_price,
-                "price_rub": self.tariff_1m_price / 100
+                "price_rub": self.tariff_1m_price / 100,
+                "antiblock": False
             },
             "3m": {
                 "name": "3 месяца",
                 "days": 90,
                 "price": self.tariff_3m_price,
-                "price_rub": self.tariff_3m_price / 100
+                "price_rub": self.tariff_3m_price / 100,
+                "antiblock": False
             },
             "12m": {
                 "name": "1 год",
                 "days": 365,
                 "price": self.tariff_12m_price,
-                "price_rub": self.tariff_12m_price / 100
+                "price_rub": self.tariff_12m_price / 100,
+                "antiblock": False
+            },
+            "antiblock_1m": {
+                "name": "🛡️ Антиглушилка 1 месяц",
+                "days": 30,
+                "price": self.tariff_antiblock_1m_price,
+                "price_rub": self.tariff_antiblock_1m_price / 100,
+                "antiblock": True
+            },
+            "antiblock_3m": {
+                "name": "🛡️ Антиглушилка 3 месяца",
+                "days": 90,
+                "price": self.tariff_antiblock_3m_price,
+                "price_rub": self.tariff_antiblock_3m_price / 100,
+                "antiblock": True
+            },
+            "antiblock_12m": {
+                "name": "🛡️ Антиглушилка 1 год",
+                "days": 365,
+                "price": self.tariff_antiblock_12m_price,
+                "price_rub": self.tariff_antiblock_12m_price / 100,
+                "antiblock": True
             }
         }
         return tariffs.get(tariff_id)

@@ -3,7 +3,7 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 
-def get_tariffs_keyboard(show_trial: bool = False) -> InlineKeyboardMarkup:
+def get_tariffs_keyboard(show_trial: bool = False, show_antiblock: bool = False) -> InlineKeyboardMarkup:
     """Клавиатура с тарифами"""
     builder = InlineKeyboardBuilder()
     
@@ -16,22 +16,58 @@ def get_tariffs_keyboard(show_trial: bool = False) -> InlineKeyboardMarkup:
             )
         )
     
+    # Кнопка обхода глушилок (если есть активная подписка)
+    if show_antiblock:
+        builder.row(
+            InlineKeyboardButton(
+                text="🛡️ Получить ключ с обходом глушилок",
+                callback_data="get_antiblock_key"
+            )
+        )
+    
     builder.row(
         InlineKeyboardButton(
-            text="🌟 1 месяц - 299₽",
+            text="⚡️ 1 месяц - 299₽",
             callback_data="tariff:1m"
         )
     )
     builder.row(
         InlineKeyboardButton(
-            text="💎 3 месяца - 799₽ (выгодно!)",
+            text="⚡️ 3 месяца - 799₽",
             callback_data="tariff:3m"
         )
     )
     builder.row(
         InlineKeyboardButton(
-            text="👑 1 год - 2499₽ (самая выгодная!)",
+            text="⚡️ 1 год - 2499₽",
             callback_data="tariff:12m"
+        )
+    )
+    
+    # Разделитель
+    builder.row(
+        InlineKeyboardButton(
+            text="━━━━━ 🛡️ АНТИГЛУШИЛКА ━━━━━",
+            callback_data="antiblock_info"
+        )
+    )
+    
+    builder.row(
+        InlineKeyboardButton(
+            text="🛡️ 1 месяц - 499₽",
+            callback_data="tariff:antiblock_1m"
+        )
+    )
+    builder.row(
+        InlineKeyboardButton(
+            text="🛡️ 3 месяца - 1299₽",
+            callback_data="tariff:antiblock_3m"
+        )
+    )
+    builder.row(
+        InlineKeyboardButton(
+            text="🛡️ 1 год - 3999₽",
+            callback_data="tariff:antiblock_12m"
         )
     )
     

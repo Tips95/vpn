@@ -60,12 +60,13 @@ class HiddifyService:
             logger.error(f"Ошибка при авторизации в 3x-ui: {e}")
             return False
             
-    async def create_user(self, expire_days: int) -> Optional[Dict[str, str]]:
+    async def create_user(self, expire_days: int, use_antiblock: bool = False) -> Optional[Dict[str, str]]:
         """
         Создать VPN-пользователя в X-UI
         
         Args:
             expire_days: Срок действия подписки в днях
+            use_antiblock: Использовать режим обхода глушилок (inbound 2)
             
         Returns:
             {"uuid": "...", "subscription_url": "..."}
@@ -99,16 +100,27 @@ class HiddifyService:
                     logger.error("Нет созданных inbound'ов в 3x-ui. Создайте inbound через веб-интерфейс!")
                     return None
                 
-                # Используем первый доступный inbound
-                inbound_id = inbounds_data["obj"][0]["id"]
-                logger.info(f"Используем inbound ID: {inbound_id}")
+                # Выбираем inbound в зависимости от режима
+                if use_antiblock and len(inbounds_data["obj"]) > 1:
+                    # Режим обхода глушилок - используем второй inbound (ID=2)
+                    inbound = inbounds_data["obj"][1]
+                    inbound_id = inbound["id"]
+                    logger.info(f"Используем ANTIBLOCK inbound ID: {inbound_id}")
+                else:
+                    # Обычный режим - используем первый inbound (ID=1)
+                    inbound = inbounds_data["obj"][0]
+                    inbound_id = inbound["id"]
+                    logger.info(f"Используем FAST inbound ID: {inbound_id}")
                 
                 # Генерируем UUID и email для клиента
                 client_uuid = str(uuid.uuid4())
                 user_email = f"user_{int(time.time())}@vpn.local"
                 
                 # Красивое название для отображения в приложении
-                display_name = "🇳🇱 AI VPN | Netherlands"
+                if use_antiblock:
+                    display_name = "🛡️ AI VPN | Обход глушилок"
+                else:
+                    display_name = "🇳🇱 AI VPN | Netherlands"
                 
                 # Вычисляем дату истечения (timestamp в миллисекундах)
                 expire_time = int((time.time() + (expire_days * 86400)) * 1000)
@@ -116,8 +128,7 @@ class HiddifyService:
                 # Лимит трафика в байтах
                 total_gb = self.data_limit_gb * 1024 * 1024 * 1024
                 
-                # Определяем flow в зависимости от security
-                inbound = inbounds_data["obj"][0]
+                # Определяем flow в зависимости от security (используем уже полученный inbound)
                 stream_settings = inbound.get("streamSettings", "{}")
                 if isinstance(stream_settings, str):
                     stream_settings = json.loads(stream_settings)
@@ -160,8 +171,7 @@ class HiddifyService:
                 if response.status_code == 200:
                     data = response.json()
                     if data.get("success"):
-                        # Получаем данные inbound для формирования VLESS-ссылки
-                        inbound = inbounds_data["obj"][0]
+                        # Получаем данные inbound для формирования VLESS-ссылки (уже определен выше)
                         port = inbound.get("port", 443)
                         remark = inbound.get("remark", "VPN")
                         
