@@ -629,16 +629,16 @@ async def admin_subscriptions(callback: CallbackQuery):
 
 @router.callback_query(F.data == "admin_test_vpn")
 async def admin_test_vpn(callback: CallbackQuery):
-    """Создать тестовый VPN для админа"""
+    """Создать тестовый VPN для админа (обычный)"""
     if not settings.is_admin(callback.from_user.id):
         await callback.answer("⛔️ Доступ запрещен", show_alert=True)
         return
-    
-    await callback.answer("⏳ Создаю VPN...", show_alert=False)
-    
+
+    await callback.answer("⏳ Создаю обычный VPN...", show_alert=False)
+
     # Создать VPN на 30 дней
-    vpn_data = await hiddify_service.create_user(expire_days=30)
-    
+    vpn_data = await hiddify_service.create_user(expire_days=30, use_antiblock=False)
+
     if vpn_data:
         # Получить user_id
         async with aiosqlite.connect(db.db_path) as conn:
@@ -647,7 +647,7 @@ async def admin_test_vpn(callback: CallbackQuery):
                 (callback.from_user.id,)
             )
             user = await cursor.fetchone()
-            
+
             if user:
                 # Сохранить подписку
                 await db.create_subscription(
@@ -657,11 +657,12 @@ async def admin_test_vpn(callback: CallbackQuery):
                     subscription_url=vpn_data["subscription_url"],
                     days=30
                 )
-        
+
         text = (
             "✅ <b>Тестовый VPN создан!</b>\n\n"
-            "📅 Срок: 30 дней\n"
-            "💾 Трафик: 100 GB\n\n"
+            "⚡️ <b>Режим:</b> Обычный (Reality)\n"
+            "📅 <b>Срок:</b> 30 дней\n"
+            "💾 <b>Трафик:</b> 100 GB\n\n"
             "🔗 <b>Ваш VPN-ключ:</b>\n"
             f"<code>{vpn_data['subscription_url']}</code>\n\n"
             "📱 <b>Как подключиться:</b>\n"
@@ -669,6 +670,63 @@ async def admin_test_vpn(callback: CallbackQuery):
             "2. Откройте V2rayNG/V2Box/Happ Plus\n"
             "3. Нажмите '+' → 'Import from clipboard'\n"
             "4. Подключитесь к серверу!\n\n"
+            "❓ Вопросы? Пишите @tipss94"
+        )
+        await callback.message.answer(text, parse_mode="HTML")
+        await callback.message.edit_text(
+            "🔧 <b>Админ-панель</b>",
+            reply_markup=get_admin_keyboard(),
+            parse_mode="HTML"
+        )
+    else:
+        await callback.message.answer("❌ Ошибка создания VPN")
+        await callback.answer()
+
+
+@router.callback_query(F.data == "admin_test_antiblock")
+async def admin_test_antiblock(callback: CallbackQuery):
+    """Создать тестовый VPN с обходом глушилок для админа"""
+    if not settings.is_admin(callback.from_user.id):
+        await callback.answer("⛔️ Доступ запрещен", show_alert=True)
+        return
+
+    await callback.answer("⏳ Создаю VPN с обходом глушилок...", show_alert=False)
+
+    # Создать VPN на 30 дней с режимом антиглушилки
+    vpn_data = await hiddify_service.create_user(expire_days=30, use_antiblock=True)
+
+    if vpn_data:
+        # Получить user_id
+        async with aiosqlite.connect(db.db_path) as conn:
+            cursor = await conn.execute(
+                "SELECT id FROM users WHERE telegram_id = ?",
+                (callback.from_user.id,)
+            )
+            user = await cursor.fetchone()
+
+            if user:
+                # Сохранить подписку
+                await db.create_subscription(
+                    user_id=user[0],
+                    tariff="admin_test_antiblock",
+                    hiddify_uuid=vpn_data["uuid"],
+                    subscription_url=vpn_data["subscription_url"],
+                    days=30
+                )
+
+        text = (
+            "✅ <b>Тестовый VPN создан!</b>\n\n"
+            "🛡️ <b>Режим:</b> Обход глушилок (WS+TLS)\n"
+            "📅 <b>Срок:</b> 30 дней\n"
+            "💾 <b>Трафик:</b> 100 GB\n\n"
+            "🔗 <b>Ваш VPN-ключ:</b>\n"
+            f"<code>{vpn_data['subscription_url']}</code>\n\n"
+            "📱 <b>Как подключиться:</b>\n"
+            "1. Скопируйте ссылку выше\n"
+            "2. Откройте V2rayNG/V2Box/Happ Plus\n"
+            "3. Нажмите '+' → 'Import from clipboard'\n"
+            "4. Подключитесь к серверу!\n\n"
+            "💡 <b>Этот ключ работает даже при блокировках!</b>\n\n"
             "❓ Вопросы? Пишите @tipss94"
         )
         await callback.message.answer(text, parse_mode="HTML")

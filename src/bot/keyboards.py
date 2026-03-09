@@ -182,12 +182,21 @@ def get_admin_keyboard() -> InlineKeyboardMarkup:
             callback_data="admin_subscriptions"
         )
     )
+    
+    # Тестовые ключи
     builder.row(
         InlineKeyboardButton(
-            text="🎁 Получить тестовый VPN",
+            text="⚡️ Тестовый VPN (обычный)",
             callback_data="admin_test_vpn"
         )
     )
+    builder.row(
+        InlineKeyboardButton(
+            text="🛡️ Тестовый VPN (антиглушилка)",
+            callback_data="admin_test_antiblock"
+        )
+    )
+    
     builder.row(
         InlineKeyboardButton(
             text="◀️ Назад к тарифам",
