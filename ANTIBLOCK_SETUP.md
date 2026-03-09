@@ -29,8 +29,8 @@ Network: tcp
 Security: reality
 
 Reality Settings:
-├─ Target (Dest): ads.x5.ru:443
-├─ SNI (Server Names): ads.x5.ru
+├─ Target (Dest): mail.ru:443
+├─ SNI (Server Names): mail.ru
 ├─ uTLS (Fingerprint): chrome
 ├─ Short IDs: (автогенерация, например: 5041e8,7d38e1...)
 ├─ Public Key: (автогенерация)
@@ -89,11 +89,11 @@ journalctl -u vpn-bot -f | grep ANTIBLOCK
 
 ## 📱 Как работает обход глушилок:
 
-Reality маскирует VPN-трафик под обычный HTTPS-запрос к российскому домену **ads.x5.ru** (X5 Retail Group - Пятёрочка, Перекрёсток):
+Reality маскирует VPN-трафик под обычный HTTPS-запрос к российскому домену **mail.ru** (Mail.ru Group - один из крупнейших порталов):
 
 ```
 🌐 Интернет провайдер видит:
-   └─> HTTPS запрос к ads.x5.ru (легитимный трафик) ✅
+   └─> HTTPS запрос к mail.ru (легитимный трафик) ✅
 
 🔐 На самом деле:
    └─> Зашифрованный VPN-трафик через Reality + XTLS 🚀
@@ -107,7 +107,7 @@ Reality маскирует VPN-трафик под обычный HTTPS-запр
 
 1. **Не удаляйте** inbound "VPN-AntiBlock-Reality" - он нужен для платных подписок
 2. **Порт 441** должен быть открыт в firewall
-3. **Target/SNI** должны указывать на **ads.x5.ru** (незаблокированный домен в РФ)
+3. **Target/SNI** должны указывать на **mail.ru** (быстрый российский домен с низким пингом)
 4. **Security** обязательно должен быть **reality** (не TLS, не WebSocket)
 
 ---
