@@ -120,8 +120,15 @@ async def cmd_start(message: Message):
         has_trial = await db.has_used_trial(user.id)
         has_subs = await db.has_any_subscription(user.id)
         show_trial = not has_trial and not has_subs
+    
+    # Проверить наличие активной подписки для кнопки обновления
+    has_active_sub = False
+    if subscription:
+        expires_at = datetime.fromisoformat(subscription["expires_at"])
+        days_left = (expires_at - datetime.now()).days
+        has_active_sub = days_left > 0
 
-    await message.answer(welcome_text, reply_markup=get_tariffs_keyboard(show_trial=show_trial))
+    await message.answer(welcome_text, reply_markup=get_tariffs_keyboard(show_trial=show_trial, has_active_subscription=has_active_sub))
 
 
 @router.callback_query(F.data == "get_trial")
@@ -393,7 +400,14 @@ async def back_to_tariffs(callback: CallbackQuery):
         has_subs = await db.has_any_subscription(callback.from_user.id)
         show_trial = not has_trial and not has_subs
     
-    await callback.message.edit_text(text, reply_markup=get_tariffs_keyboard(show_trial=show_trial))
+    # Проверить наличие активной подписки для кнопки обновления
+    has_active_sub = False
+    if subscription:
+        expires_at = datetime.fromisoformat(subscription["expires_at"])
+        days_left = (expires_at - datetime.now()).days
+        has_active_sub = days_left > 0
+    
+    await callback.message.edit_text(text, reply_markup=get_tariffs_keyboard(show_trial=show_trial, has_active_subscription=has_active_sub))
     await callback.answer()
 
 
@@ -819,9 +833,16 @@ async def echo_handler(message: Message):
         has_subs = await db.has_any_subscription(message.from_user.id)
         show_trial = not has_trial and not has_subs
     
+    # Проверить наличие активной подписки для кнопки обновления
+    has_active_sub = False
+    if subscription:
+        expires_at = datetime.fromisoformat(subscription["expires_at"])
+        days_left = (expires_at - datetime.now()).days
+        has_active_sub = days_left > 0
+    
     await message.answer(
         text,
-        reply_markup=get_tariffs_keyboard(show_trial=show_trial)
+        reply_markup=get_tariffs_keyboard(show_trial=show_trial, has_active_subscription=has_active_sub)
     )
 
 
@@ -947,13 +968,16 @@ async def upgrade_to_xhttp(callback: CallbackQuery):
         await callback.message.edit_text(
             "❌ У вас нет активной подписки.\n\n"
             "Выберите тариф для подключения:",
-            reply_markup=get_tariffs_keyboard(show_trial=False)
+            reply_markup=get_tariffs_keyboard(show_trial=False, has_active_subscription=False)
         )
         return
     
     # Создать новый ключ (старый автоматически станет неактивным при превышении лимитов)
+    expires_at = datetime.fromisoformat(subscription["expires_at"])
+    days_remaining = max(1, (expires_at - datetime.now()).days)
+    
     vpn_data = await hiddify_service.create_user(
-        expire_days=(subscription["expires_at"] - datetime.now()).days,
+        expire_days=days_remaining,
         use_antiblock=False  # Обычный VPN на XHTTP
     )
     

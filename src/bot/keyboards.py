@@ -3,9 +3,18 @@ from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 
-def get_tariffs_keyboard(show_trial: bool = False) -> InlineKeyboardMarkup:
+def get_tariffs_keyboard(show_trial: bool = False, has_active_subscription: bool = False) -> InlineKeyboardMarkup:
     """Клавиатура выбора режима VPN"""
     builder = InlineKeyboardBuilder()
+    
+    # Кнопка обновления ключа для активных подписчиков
+    if has_active_subscription:
+        builder.row(
+            InlineKeyboardButton(
+                text="🚀 Обновить ключ (XHTTP)",
+                callback_data="upgrade_to_xhttp"
+            )
+        )
     
     # Кнопка пробного периода (если доступна)
     if show_trial:
